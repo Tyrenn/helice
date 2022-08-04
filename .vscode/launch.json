@@ -1,0 +1,13 @@
+{
+	"version": "0.1.0",
+	"configurations": [
+		{
+			"name": "Build & Debug",
+			"type": "node",
+			"request": "launch",
+			"program": "${workspaceFolder}/src/index.ts",
+			"preLaunchTask": "tsc: build - tsconfig.json",
+			"outFiles": ["${workspaceFolder}/build/**/*.js"]
+		}
+	]
+}

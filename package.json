@@ -1,0 +1,19 @@
+{
+	"name": "quilder",
+	"version": "0.0.1",
+	"description": "PostgreSQL Query Builder",
+	"main": "./src",
+	"scripts": {
+		"build": "tsc",
+		"start": "node ./build"
+	},
+	"author": "",
+	"license": "ISC",
+	"imports": {
+		"*.js": "./build/*.js",
+		"*": "./build/*.js"
+	},
+	"dependencies": {
+		"typescript": "^4.7.4"
+	}
+}
