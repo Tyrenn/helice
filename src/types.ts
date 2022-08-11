@@ -23,17 +23,16 @@ export type PrefixObject<T, P extends string> = {
 
 type ArrayedDottedPrefix<Prefix> = Prefix extends string ? `${Prefix}${modifierseparator}` | `[${Prefix}]${modifierseparator}` : never;
 
-export type Where<Env extends QueryEnvironment> = Partial<PrefixObject<Arrayed<FlattenQueryEnvironment<Env>>, '' | `[]${modifierseparator}` | ArrayedDottedPrefix<'=' | '<>' | '!=' | '>' | '>=' | '<' | '<=' | '~~' | '~~*' | '!~~' | '!~~*'>>> | Partial<PrefixObject<Arrayed<FlattenQueryEnvironment<Env>>, '' | '[]:' | ArrayedDottedPrefix<'=' | '<>' | '!=' | '>' | '>=' | '<' | '<=' | '~~' | '~~*' | '!~~' | '!~~*'>>>[];
+export type Where<Env extends QueryEnvironment> = Partial<PrefixObject<Arrayed<FlatEnv<Env>>, '' | `[]${modifierseparator}` | ArrayedDottedPrefix<'=' | '<>' | '!=' | '>' | '>=' | '<' | '<=' | '~~' | '~~*' | '!~~' | '!~~*'>>> | Partial<PrefixObject<Arrayed<FlatEnv<Env>>, '' | '[]:' | ArrayedDottedPrefix<'=' | '<>' | '!=' | '>' | '>=' | '<' | '<=' | '~~' | '~~*' | '!~~' | '!~~*'>>>[];
 
 
-export type InferAlias<A extends {[key : string] : string}> = {[key in keyof A] : A[key] extends `${infer U}` ? U : never};
 
 
 export type OrderBy<Env extends QueryEnvironment> = {
-	[Key in keyof FlattenQueryEnvironment<Env>]? : 'ASC' | 'DESC' | '';
+	[Key in keyof FlatEnv<Env>]? : 'ASC' | 'DESC' | '';
 }
 
-export type GroupBy<Env extends QueryEnvironment> = (keyof FlattenQueryEnvironment<Env> extends string ? keyof FlattenQueryEnvironment<Env> : never)[];	
+export type GroupBy<Env extends QueryEnvironment> = (keyof FlatEnv<Env> extends string ? keyof FlatEnv<Env> : never)[];	
 
 /**
  * Transform every properties of an object to string if not object
@@ -50,20 +49,9 @@ export interface QueryBuilder<Schema, Fields, Tablename>{
 	quild() : { text : string, values : any[], nbvalues : number};
 }
 
-
 export type ExtractPropsKey<T, TProps extends T[keyof T]> = {
 	[P in keyof T]: T[P] extends TProps ? P : never;
 }[keyof T];
-
-export type ExtractTablesKey<T, Tables extends string> = {
-	[P in keyof T] : P extends `${Tables}${tablecolumnseparator}${string}` ? P : never;
-}[keyof T]
-
-export type ExcludeTables<T, Tables extends string> = Omit<T, ExtractTablesKey<T, Tables>>;
-
-export type ExtractTables<T, Tables extends string> = Pick<T, ExtractTablesKey<T, Tables>>;
-
-export type ExtractProps<T, TProps extends T[keyof T]> = Pick<T, ExtractPropsKey<T, TProps>>;
 
 export type ExtractNestedPropKeys<CO extends {[key : string] : {[key : string] : any}}> = keyof {
 	[Key in (keyof CO) as Key extends string ? `${Key}${tablecolumnseparator}${keyof CO[Key] extends string ? keyof CO[Key] : never}` : never] : string;
@@ -73,21 +61,58 @@ export type SameType<Type extends {[key : string] : any}> = {
 	[Key in keyof Type]? : ExtractPropsKey<Type, Type[Key]>
 }
 
-export type SameTypeDifferentTable<Type extends {[key : string] : any}> = {
+export type SameTypeDiffKey<Type extends {[key : string] : any}> = {
 	[Key in keyof Type]? : Key extends `${infer U}${tablecolumnseparator}${string}` ? Exclude<ExtractPropsKey<Type, Type[Key]>, `${U}${tablecolumnseparator}${string}`> : never
 };
 
-export type FlattenQueryEnvironment<Nested extends QueryEnvironment> = {
+/** Besoin d'un type qui permette l'association des clés de 2 types de même type mais pas de même nom */
+
+export type SameTypeDiffKey2<Type extends {[key : string] : any}, T extends any> = {
+	[Key in keyof Type as Key extends `${infer U}.${string}` ? (U extends T ? Key : never) : never]? : Key extends `${infer U}${tablecolumnseparator}${string}` ? Exclude<ExtractPropsKey<Type, Type[Key]>, `${U}${tablecolumnseparator}${string}`> : never
+};
+export type FlatEnv<Nested extends QueryEnvironment> = {
 	[Key in ExtractNestedPropKeys<Nested>] : Key extends `${infer T}${tablecolumnseparator}${infer C}` ? Nested[T][C] : never;
 }
 
-export type ExpandEnv<Env extends QueryEnvironment, Alias extends {[key : string] : string}> = {
-	[Key in (keyof Env) | (keyof Alias)] : Key extends (keyof Alias) ? Env[Alias[Key]] : Env[Key extends string ? Key : never];
+export type ExcludeFromEnv<Env extends {[key : string] : any}, T extends any> = {
+	[Key in (keyof Env) as Key extends T ? never : Key] : Env[Key];
 }
 
-export type Join<Env extends QueryEnvironment> = PrefixObject<SameTypeDifferentTable<FlattenQueryEnvironment<Env>>, `i${modifierseparator}` | '' | `l${modifierseparator}` | `r${modifierseparator}`>;
-export type TypedJoin<Env extends QueryEnvironment> = SameTypeDifferentTable<FlattenQueryEnvironment<Env>>;
+export type QueryEnvironment = { [key : string] : {[key : string] : any}};
 
+
+
+export type InferAlias<A extends {[key : string] : any}> = {[key in keyof A] : A[key] extends `${infer U}` ? U : never};
+
+/*export type ExpandEnvByAlias<Env extends QueryEnvironment, Alias extends {[key : string] : string}> = {
+	[Key in (keyof Env) | (keyof Alias)] : Key extends (keyof Alias) ? Env[Alias[Key]] : Env[Key extends string ? Key : never];
+}*/
+
+export type ChangeEnvByAlias<Env extends QueryEnvironment, Alias extends {[key : string] : any}> = 
+	{ [Key in (keyof Env) as Key extends (Alias[keyof Alias]) ? never : Key] : Env[Key]; }
+	&
+	{ [Key in (keyof Alias)] : Env[Alias[Key]] }
+
+export type NarrowEnvByTable<Env extends QueryEnvironment, Table extends string> = {
+	[Key in keyof Env as Key extends Table ? Key : never] : Env[Key];
+}
+
+
+export type NarrowEnvByJoins<Env extends QueryEnvironment, Join extends {[key : string] : any}> = {
+	[Key in (keyof Env) as Key extends (keyof Join) ? Key : never] : Env[Key];
+}
+
+export type Alias<Env extends QueryEnvironment> = {[key : string] : keyof Env};
+
+export type Join<Env extends QueryEnvironment, AccessibleEnv extends QueryEnvironment> = PrefixObject<SameTypeDiffKey2<FlatEnv<Env>, keyof AccessibleEnv>, `i${modifierseparator}` | '' | `l${modifierseparator}` | `r${modifierseparator}`>;
+export type TypedJoin<Env extends QueryEnvironment> = SameTypeDiffKey<FlatEnv<Env>>;
+
+
+/**
+Join seulement possible du côté droit avec les tables accessibles (ou alias).
+Les alias changent les noms des tables directement dans l'Env ? Should
+
+ */
 
 type Table1 = {
 	column1 : string;
@@ -112,6 +137,13 @@ type alias = {
 	alias1 : "table1";
 }
 
+let befo : ExcludeFromFlatEnv<FlatEnv<testenv>, 'table2'> = {
+
+}
+
+let test : Join<testenv, {table2 : Table2}>  = {
+	''
+}
 
 /*
 	Hacky things from 
@@ -121,7 +153,7 @@ type alias = {
 type UnionToIntersection<U> =
 	(U extends any ? (k: U) => void : never) extends ((k: infer I) => void) ? I : never
 
-type LastOf<T> =
+export type LastOf<T> =
 	UnionToIntersection<T extends any ? () => T : never> extends () => (infer R) ? R : never
 
 // TS4.0+
@@ -136,4 +168,5 @@ type ObjValueTuple<T, KS extends any[] = TuplifyUnion<keyof T>, R extends any[] 
 	? ObjValueTuple<T, KT, [...R, T[K & keyof T]]>
 	: R
 
-export type QueryEnvironment = { [key : string] : {[key : string] : any}};
+
+export type FirstOfUnion<T> = TuplifyUnion<T>[0];
