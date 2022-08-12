@@ -1,8 +1,8 @@
-import { QueryEnvironment, Join, TypedJoin, Where, InferAlias, OrderBy, GroupBy, LastOf, FirstOfUnion, ChangeEnvByAlias, NarrowEnvByTable, NarrowEnvByJoins, Alias } from './types';
+import { QueryEnvironment, Join, TypedJoin, Where, OrderBy, GroupBy, AliasEnv, NarrowTableEnv, NarrowJoinEnv, Alias, Fields } from './types';
 
 
 
-export class SelectQueryBuilder<Env extends QueryEnvironment, AccessibleEnv extends QueryEnvironment>{
+export class SelectQueryBuilder<Env extends QueryEnvironment, AccEnv extends QueryEnvironment>{
 
 	#tablename? : string;
 	#joins : Array<{[key : string] : string}> = [];
@@ -15,8 +15,8 @@ export class SelectQueryBuilder<Env extends QueryEnvironment, AccessibleEnv exte
 
 	constructor(){}
 
-	from<T extends string>(tablename : T) : SelectQueryBuilder<Env, Pick<Env, T extends string ? T : never>>{
-		return this;
+	from<T extends keyof Env>(tablename : T) : SelectQueryBuilder<Env, NarrowTableEnv<Env, T extends string ? T : never> & NarrowTableEnv<AccEnv, T extends string ? T : never>>{
+		return this as SelectQueryBuilder<Env, NarrowTableEnv<Env, T extends string ? T : never> & NarrowTableEnv<AccEnv, T extends string ? T : never>>;
 	}
 
 	quild(): { text: string; values: any[]; nbvalues: number; } {
@@ -43,30 +43,41 @@ export class SelectQueryBuilder<Env extends QueryEnvironment, AccessibleEnv exte
 		return this;
 	}
 
-	where(where : Where<Env>){
+	where(where : Where<AccEnv>){
 		return this;
 	}
 
-	alias<A extends Alias<Env>>(alias : A) : SelectQueryBuilder<ChangeEnvByAlias<Env, A>, ChangeEnvByAlias<AccessibleEnv, A>>{
-		return this as SelectQueryBuilder<ChangeEnvByAlias<Env, A>, ChangeEnvByAlias<AccessibleEnv, A>>;
-	}
-
-	join<J extends Join<Env, AccessibleEnv>>(joins : J) : SelectQueryBuilder<Env, AccessibleEnv & NarrowEnvByJoins<Env, J>>;
-	join<J extends Join<Env, AccessibleEnv>>(joins : J, type : string) : SelectQueryBuilder<Env, AccessibleEnv & NarrowEnvByJoins<Env, J>>;
-	join<J extends Join<Env, AccessibleEnv>, A extends Alias<Env>>(joins : J, type : string, alias : A) : SelectQueryBuilder<ChangeEnvByAlias<Env, A>, ChangeEnvByAlias<AccessibleEnv, A> & NarrowEnvByJoins<ChangeEnvByAlias<Env, A>, J>>;
-	join<J extends Join<Env, AccessibleEnv>, A extends Alias<Env>>(joins : J, type? : string, alias? : A) : SelectQueryBuilder<ChangeEnvByAlias<Env, A>, ChangeEnvByAlias<AccessibleEnv, A> & NarrowEnvByJoins<ChangeEnvByAlias<Env, A>, J>>{
-		return this as SelectQueryBuilder<ChangeEnvByAlias<Env, A>, ChangeEnvByAlias<AccessibleEnv, A> & NarrowEnvByJoins<ChangeEnvByAlias<Env, A>, J>>;
-	}
-
-	innerjoin(joins : TypedJoin<Env>){
+	fields(field : Fields<AccEnv>){
 		return this;
 	}
 
-	leftjoin(joins : TypedJoin<Env>){
+	alias<A extends Alias<Env>>(alias : A) : SelectQueryBuilder<AliasEnv<Env, A>, AliasEnv<AccEnv, A>>{
+		return this as SelectQueryBuilder<AliasEnv<Env, A>, AliasEnv<AccEnv, A>>;
+	}
+
+	join<J extends Join<Env, AccEnv>>(joins : J) : SelectQueryBuilder<Env, AccEnv & NarrowJoinEnv<Env, J>>;
+	join<J extends Join<Env, AccEnv>>(joins : J, type : 'left' | 'right' | 'inner' | undefined) : SelectQueryBuilder<Env, AccEnv & NarrowJoinEnv<Env, J>>;
+	join<J extends Join<Env, AccEnv>, A extends Alias<Env>>(joins : J, type : 'left' | 'right' | 'inner' | undefined, alias : A) : SelectQueryBuilder<AliasEnv<Env, A>, AliasEnv<AccEnv, A> & NarrowJoinEnv<AliasEnv<Env, A>, J>>;
+	join<J extends Join<Env, AccEnv>, A extends Alias<Env>>(joins : J, type? : 'left' | 'right' | 'inner' | undefined, alias? : A) : SelectQueryBuilder<Env, AccEnv & NarrowJoinEnv<Env, J>> | SelectQueryBuilder<AliasEnv<Env, A>, AliasEnv<AccEnv, A> & NarrowJoinEnv<AliasEnv<Env, A>, J>>{
 		return this;
 	}
 
-	rightjoin(joins : TypedJoin<Env>){
+	innerjoin<J extends TypedJoin<Env, AccEnv>, A extends Alias<Env>>(joins : J) : SelectQueryBuilder<Env, AccEnv & NarrowJoinEnv<Env, J>>;
+	innerjoin<J extends TypedJoin<Env, AccEnv>, A extends Alias<Env>>(joins : J, alias : A) : SelectQueryBuilder<Env, AccEnv & NarrowJoinEnv<Env, J>>
+	innerjoin<J extends TypedJoin<Env, AccEnv>, A extends Alias<Env>>(joins : J, alias? : A) : SelectQueryBuilder<Env, AccEnv & NarrowJoinEnv<Env, J>> | SelectQueryBuilder<AliasEnv<Env, A>, AliasEnv<AccEnv, A> & NarrowJoinEnv<AliasEnv<Env, A>, J>>{
+		return this;
+	}
+
+	leftjoin<J extends TypedJoin<Env, AccEnv>, A extends Alias<Env>>(joins : J) : SelectQueryBuilder<Env, AccEnv & NarrowJoinEnv<Env, J>>;
+	leftjoin<J extends TypedJoin<Env, AccEnv>, A extends Alias<Env>>(joins : J, alias : A) : SelectQueryBuilder<Env, AccEnv & NarrowJoinEnv<Env, J>>
+	leftjoin<J extends TypedJoin<Env, AccEnv>, A extends Alias<Env>>(joins : J, alias? : A) : SelectQueryBuilder<Env, AccEnv & NarrowJoinEnv<Env, J>> | SelectQueryBuilder<AliasEnv<Env, A>, AliasEnv<AccEnv, A> & NarrowJoinEnv<AliasEnv<Env, A>, J>>{
+
+		return this;
+	}
+
+	rightjoin<J extends TypedJoin<Env, AccEnv>, A extends Alias<Env>>(joins : J) : SelectQueryBuilder<Env, AccEnv & NarrowJoinEnv<Env, J>>;
+	rightjoin<J extends TypedJoin<Env, AccEnv>, A extends Alias<Env>>(joins : J, alias : A) : SelectQueryBuilder<Env, AccEnv & NarrowJoinEnv<Env, J>>
+	rightjoin<J extends TypedJoin<Env, AccEnv>, A extends Alias<Env>>(joins : J, alias? : A) : SelectQueryBuilder<Env, AccEnv & NarrowJoinEnv<Env, J>> | SelectQueryBuilder<AliasEnv<Env, A>, AliasEnv<AccEnv, A> & NarrowJoinEnv<AliasEnv<Env, A>, J>>{
 		return this;
 	}
 }
@@ -75,28 +86,30 @@ export class SelectQueryBuilder<Env extends QueryEnvironment, AccessibleEnv exte
 type Table1 = {
 	column1 : string;
 	column2 : number;
+	column3 : 'eee';
+	column4 : Array<string>;
 }
 
 interface Table2{
 	column21 : number;
 	column22 : string;
+	column23 : "bbb";
 }
+
+interface Table3{
+	column31 : Array<number>;
+	column32 : Array<string>;
+}
+
+type TestEnv = {
+	table1 : Table1;
+	table2 : Table2;
+	table3 : Table3;
+}
+
 //SelectQueryBuilder<{table1 : Table1, table2 : Table2}>
 // new SelectQueryBuilder('big');
-let test1 = new SelectQueryBuilder<{table1 : Table1, table2 : Table2}, NarrowEnvByTable<{table1 : Table1, table2 : Table2}, "table1">>();
-
-// !!! INCLUDE NOT EXCLUDE...
-let test4452 = test1.join({''});
-
-///let ttt = test1.from('brfr');
-let test2 = test1.alias({'alias1' : 'table1', 'alias2' : 'table2'});
-
-let test4 = test2.join({''});	
-
-
-function test<T extends string>(param : T) : T extends string ? T : never{
-	return param as T extends string ? T : never;
-}
+let test1 = new SelectQueryBuilder<TestEnv, NarrowTableEnv<TestEnv, "table1" | 'table2'>>().alias({'alias3' : "table3"}).innerjoin({'table2.column23' : '' });
 
 
 /** Starts from an Environment and give Joins... 
