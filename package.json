@@ -14,6 +14,6 @@
 		"*": "./build/*.js"
 	},
 	"dependencies": {
-		"typescript": "^4.7.4"
+		"typescript": "^5.1.6"
 	}
 }

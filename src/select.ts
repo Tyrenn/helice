@@ -1,29 +1,64 @@
-import { QueryEnvironment, Join, TypedJoin, Where, OrderBy, GroupBy, AliasEnv, NarrowTableEnv, NarrowJoinEnv, Alias, Fields, AliasString, CheckKeyOfEnv, NarrowedEnv, ExcludeTableEnv } from './types';
+import {Environment, Join, Field, Where, JoinExceptTables, ExtractTableFromJoin, Table} from './types';
 
+export class SelectQueryBuilder<QEnv extends Environment, QAccTables extends keyof QEnv, QTableResult extends Table>{
 
-
-export class SelectQueryBuilder<Env extends QueryEnvironment, Tablefrom extends keyof Env, AccEnv extends NarrowedEnv<Env> = NarrowTableEnv<Env, Tablefrom>>{
-
-	#tablename : string;
+	#table : keyof QEnv;
 	#joins : Map<string, string> = new Map();
 	#aliases : Map<string, string> = new Map();
-	#wheres : Array<{[key : string] : any}> = [];
+	#where : any;	// Must be typed. With type evolution at each where calls. This way can produce a valid value tuple type from it.
 	#groupby : Array<string> = [];
 	#orderby : Array<{[key : string] : string}> = [];
 	#limit? : number;
 	#fetch? : number;
-	#fields : Map<string, string> = new Map();
+	#fields : any; // Must be typed. With type evolution at each fields and alias callss. This way can produce valid result type.
+	#offset? : number;
 
-	constructor(tablename : Tablefrom){
-		this.#tablename = tablename as string;
+	constructor(table : keyof QEnv){
+		this.#table = table;
+		this.#where = undefined;
+		this.#fields = undefined
 	}
 
-	quild(): { text: string; values: any[]; nbvalues: number; } {
-		throw new Error('Method not implemented.');
+	// Should retrun a function ready to accept where, limit, offset parameters
+	quild(){
+		//
+	}
+
+	// Should return the query as static. OR as Query<typeof values needed> => get text, get values, exec(with new values or nothing)
+	build() : {text: string, values : any[]} {
+		/*
+		* Give back a function that take no parameters other than the static ones
+		*/
+		return {text : "", values : []}
+	}
+
+	exec() : {
+		/*
+		* Execute the query as is
+		*/
+	}
+
+	get text() : string {
+		/*
+		* Give back the query text so far builded with no static values
+		*/
+		return ""
+	}
+
+	get values() : any[]{
+		/*
+		* Give back the query static values from where 
+		*/
+		return []
 	}
 
 	limit(limit : number){
 		this.#limit = limit;
+		return this;
+	}
+
+	offset(){
+
 		return this;
 	}
 
@@ -32,97 +67,57 @@ export class SelectQueryBuilder<Env extends QueryEnvironment, Tablefrom extends 
 		return this;
 	}
 
-	groupby(groupby : GroupBy<Env>){
-		this.#groupby = [...this.#groupby, ...groupby];
+	groupby(){
+		/**
+		* TODO
+		 */
+		//this.#groupby = [...this.#groupby, ...groupby];
 		return this;
 	}
 
-	orderby(orderby : OrderBy<Env>){
-		this.#orderby = [...this.#orderby, ...this.#orderby];
-		return this;
-	}
-
-	where(where : Where<AccEnv>){
-		this.#wheres = [...this.#wheres, where];
-		return this;
-	}
-
-	fields(fields : Fields<AccEnv>){
-		for(const [k, v] of Object.entries(fields)){
-			this.#fields.set(k, v as string)
-		}
-		return this;
-	}
-
-	alias<A extends Alias<Env>>(aliases : A) : SelectQueryBuilder<AliasEnv<Env, A>, AliasString<Env, Tablefrom, A>, AliasEnv<AccEnv, A>>{
-		for(const [k, v] of Object.entries(aliases)){
-			this.#aliases.set(v as string, k)
-		}
-		return this as any;
-	}
-
-	join<J extends Join<Env, AccEnv>>(joins : J) : SelectQueryBuilder<Env, Tablefrom, AccEnv & NarrowJoinEnv<Env, J>>;
-	join<J extends Join<Env, AccEnv>>(joins : J, type : 'left' | 'right' | 'inner' | undefined) : SelectQueryBuilder<Env, Tablefrom, AccEnv & NarrowJoinEnv<Env, J>>;
-	join<J extends Join<Env, AccEnv>, A extends Alias<Env>>(joins : J, type : 'left' | 'right' | 'inner' | undefined, aliases : A) : SelectQueryBuilder<AliasEnv<Env, A>, AliasString<Env,Tablefrom, A>, AliasEnv<AccEnv, A> & NarrowJoinEnv<AliasEnv<Env, A>, J>>;
-	join<J extends Join<Env, AccEnv>, A extends Alias<Env>>(joins : J, type? : 'left' | 'right' | 'inner' | undefined, aliases? : A) : SelectQueryBuilder<Env, Tablefrom, AccEnv & NarrowJoinEnv<Env, J>> | SelectQueryBuilder<AliasEnv<Env, A>, AliasString<Env, Tablefrom, A>, AliasEnv<AccEnv, A> & NarrowJoinEnv<AliasEnv<Env, A>, J>>{
-		if(aliases)
-			for(const [k, v] of Object.entries(aliases)){
-				this.#aliases.set(v as string, k)
-			}
+	orderby(){
+		/**
+		* TODO
+		*/
 		
-		for(let [k, v] of Object.entries(joins)){
-			if(!k.match(/:/))
-				k = type ? type + ':' + k : 'i:' + k
-			this.#joins.set(k, v as string)
-		}
-		return this as any;
+		//this.#orderby = [...this.#orderby, ...this.#orderby];
+		return this;
 	}
 
-	innerjoin<J extends TypedJoin<Env, AccEnv>, A extends Alias<Env>>(joins : J) : SelectQueryBuilder<Env, Tablefrom, AccEnv & NarrowJoinEnv<Env, J>>;
-	innerjoin<J extends TypedJoin<Env, AccEnv>, A extends Alias<Env>>(joins : J, aliases : A) : SelectQueryBuilder<AliasEnv<Env, A>, AliasString<Env, Tablefrom, A>, AliasEnv<AccEnv, A> & NarrowJoinEnv<AliasEnv<Env, A>, J>>;
-	innerjoin<J extends TypedJoin<Env, AccEnv>, A extends Alias<Env>>(joins : J, aliases? : A) : SelectQueryBuilder<Env, Tablefrom, AccEnv & NarrowJoinEnv<Env, J>> | SelectQueryBuilder<AliasEnv<Env, A>, AliasString<Env, Tablefrom, A>, AliasEnv<AccEnv, A> & NarrowJoinEnv<AliasEnv<Env, A>, J>>{
-		if(aliases)
-			for(const [k, v] of Object.entries(aliases)){
-				this.#aliases.set(v as string, k)
-			}
-		for(const [k, v] of Object.entries(joins)){
-			this.#joins.set('i:' + k, v as string)
-		}
-		return this as any;
-	}
-	
-	leftjoin<J extends TypedJoin<Env, AccEnv>, A extends Alias<Env>>(joins : J) : SelectQueryBuilder<Env, Tablefrom, AccEnv & NarrowJoinEnv<Env, J>>;
-	leftjoin<J extends TypedJoin<Env, AccEnv>, A extends Alias<Env>>(joins : J, aliases : A) : SelectQueryBuilder<AliasEnv<Env, A>, AliasString<Env, Tablefrom, A>, AliasEnv<AccEnv, A> & NarrowJoinEnv<AliasEnv<Env, A>, J>>;
-	leftjoin<J extends TypedJoin<Env, AccEnv>, A extends Alias<Env>>(joins : J, aliases? : A) : SelectQueryBuilder<Env, Tablefrom, AccEnv & NarrowJoinEnv<Env, J>> | SelectQueryBuilder<AliasEnv<Env, A>, AliasString<Env, Tablefrom, A>, AliasEnv<AccEnv, A> & NarrowJoinEnv<AliasEnv<Env, A>, J>>{
-		if(aliases)
-			for(const [k, v] of Object.entries(aliases)){
-				this.#aliases.set(v as string, k)
-			}
-		for(const [k, v] of Object.entries(joins)){
-			this.#joins.set('l:' + k, v as string)
-		}
-		return this as any;
+	where<W extends Where<QEnv>>(where : W) : SelectQueryBuilder<QEnv, QAccTables, QTableResult>{
+		// ! Alias should change actual saved where.
+		//this.#where = {...this.#where, ...where};
+		return this;
 	}
 
-	rightjoin<J extends TypedJoin<Env, AccEnv>, A extends Alias<Env>>(joins : J) : SelectQueryBuilder<Env, Tablefrom, AccEnv & NarrowJoinEnv<Env, J>>;
-	rightjoin<J extends TypedJoin<Env, AccEnv>, A extends Alias<Env>>(joins : J, aliases : A) : SelectQueryBuilder<AliasEnv<Env, A>, AliasString<Env, Tablefrom, A>, AliasEnv<AccEnv, A> & NarrowJoinEnv<AliasEnv<Env, A>, J>>;
-	rightjoin<J extends TypedJoin<Env, AccEnv>, A extends Alias<Env>>(joins : J, aliases? : A) : SelectQueryBuilder<Env, Tablefrom, AccEnv & NarrowJoinEnv<Env, J>> | SelectQueryBuilder<AliasEnv<Env, A>, AliasString<Env, Tablefrom, A>, AliasEnv<AccEnv, A> & NarrowJoinEnv<AliasEnv<Env, A>, J>>{
-		if(aliases)
-			for(const [k, v] of Object.entries(aliases)){
-				this.#aliases.set(v as string, k)
-			}
-		for(const [k, v] of Object.entries(joins)){
-			this.#joins.set('r:' + k, v as string)
-		}
-		return this as any;
+	fields<F extends Field<Pick<QEnv, QAccTables>>>(fields : F) : SelectQueryBuilder<QEnv, QAccTables>{
+		// if(fields === '*'){
+		// 	this.#fields = '*' as QFields & F;
+		// 	return this as any
+		// }
+		// if(this.#fields && this.#fields !== '*')
+		// 	this.#fields = {...this.#fields as Fields<QAccEnv>, ...fields} as QFields & F
+		// else
+		// 	this.#fields = fields as QFields & F;
+		return this;
+	}
+
+	// alias<A extends Alias<QEnv>>(aliases : A) : SelectQueryBuilder<AliasEnv<QEnv, A>, AliasString<QEnv, QFrom, A>, AliasEnv<QAccEnv, A>>{
+	// 	for(const [k, v] of Object.entries(aliases)){
+	// 		this.#aliases.set(v as string, k)
+	// 	}
+	// 	return this as any;
+	// }
+
+	join<J extends JoinExceptTables<QEnv, QAccTables>>(joins : J) : SelectQueryBuilder<QEnv, QAccTables | ExtractTableFromJoin<J>> {
+		return this;
 	}
 
 
 	// Usable for type monitoring
-	debugAccEnvKey(keyaccenv : keyof AccEnv){};
-	debugEnvKey(keyenv : keyof Env){};
-	debugAccEnv(accenv : AccEnv){};
-	debugEnv(env : Env){};
+	debugEnvKey(keyenv : keyof QEnv){};
+	debugAccTables(accenv : QAccTables){};
+	debugEnv(env : QEnv){};
 }
 
 
@@ -176,3 +171,74 @@ Le joints global de l'objet résulte des joins réalisés avec la méthode join.
 
 => 
 **/
+
+
+
+
+
+/**
+
+Select clause object :
+{
+	prop : ''
+	prefix : {
+		prop : 'alias'
+	}
+}
+
+
+Where clause object : 
+
+{
+	prop : [] | typeof prop
+	"operator:prop" : [] | typeof
+	prop : {
+		_ : [] | '',
+		otherthanprop :  [] | typeof
+	}
+}
+
+{
+	a : "a",
+	b : [{
+			_ : "b2",
+			a : "a2",
+		},
+		{
+			_ : "b1",
+			a : "a1"
+		},
+		{
+			_ : "b3",
+			c : [{
+				_ : "c1",
+				d : "d1"
+			},
+			{
+				_ : "c2",
+				d : "d2"
+			}
+			]
+		}
+}
+
+Will translate in :
+	a = "a" 
+	AND 
+	(
+			(b = "b2" AND a = "a2") 
+		OR (b = "b1" AND a = "a1") 
+		OR (b = "b3" AND 
+				(
+						(c = "c1" AND d = "d1") 
+					OR (c = "c2" AND d = "d2")
+				)
+			)
+	)
+
+Set clause :
+{
+	prop: value | null | undefined // undefined is removed
+}
+
+ */
