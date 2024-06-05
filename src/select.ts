@@ -1,22 +1,14 @@
-import {Environment, Join, Field, Where, JoinExceptTables, ExtractTableFromJoin, Table} from './types';
+import {Environment, EnvironmentField, EnvironmentWhere, Table, TableField, TableResultFromEnvField, TableResultFromField, TableWhere} from './types';
 
-export class SelectQueryBuilder<QEnv extends Environment, QAccTables extends keyof QEnv, QTableResult extends Table>{
+export class SelectQueryBuilder<QTable extends Table, QTableResult extends Table>{
 
-	#table : keyof QEnv;
-	#joins : Map<string, string> = new Map();
-	#aliases : Map<string, string> = new Map();
-	#where : any;	// Must be typed. With type evolution at each where calls. This way can produce a valid value tuple type from it.
-	#groupby : Array<string> = [];
-	#orderby : Array<{[key : string] : string}> = [];
-	#limit? : number;
-	#fetch? : number;
-	#fields : any; // Must be typed. With type evolution at each fields and alias callss. This way can produce valid result type.
-	#offset? : number;
+	#tablename : string;
 
-	constructor(table : keyof QEnv){
-		this.#table = table;
-		this.#where = undefined;
-		this.#fields = undefined
+	#field : TableField<QTable> = '*';
+	#where : TableWhere<QTable> | undefined = undefined;
+
+	constructor(tablename : string){
+		this.#tablename = tablename;
 	}
 
 	// Should retrun a function ready to accept where, limit, offset parameters
@@ -24,101 +16,49 @@ export class SelectQueryBuilder<QEnv extends Environment, QAccTables extends key
 		//
 	}
 
-	// Should return the query as static. OR as Query<typeof values needed> => get text, get values, exec(with new values or nothing)
-	build() : {text: string, values : any[]} {
-		/*
-		* Give back a function that take no parameters other than the static ones
-		*/
-		return {text : "", values : []}
-	}
-
-	exec() : {
-		/*
-		* Execute the query as is
-		*/
-	}
-
-	get text() : string {
-		/*
-		* Give back the query text so far builded with no static values
-		*/
-		return ""
-	}
-
-	get values() : any[]{
-		/*
-		* Give back the query static values from where 
-		*/
-		return []
-	}
-
-	limit(limit : number){
-		this.#limit = limit;
+	field<F extends TableField<QTable>>(field : F) : SelectQueryBuilder<QTable, TableResultFromField<QTable, F>>{
+		this.#field = field;
+		//@ts-ignore
 		return this;
 	}
 
-	offset(){
-
+	where<W extends TableWhere<QTable>>(where : W) : SelectQueryBuilder<QTable, QTableResult>{
+		this.#where = where;
 		return this;
 	}
-
-	fetch(fetch : number){
-		this.#fetch = fetch;
-		return this;
-	}
-
-	groupby(){
-		/**
-		* TODO
-		 */
-		//this.#groupby = [...this.#groupby, ...groupby];
-		return this;
-	}
-
-	orderby(){
-		/**
-		* TODO
-		*/
-		
-		//this.#orderby = [...this.#orderby, ...this.#orderby];
-		return this;
-	}
-
-	where<W extends Where<QEnv>>(where : W) : SelectQueryBuilder<QEnv, QAccTables, QTableResult>{
-		// ! Alias should change actual saved where.
-		//this.#where = {...this.#where, ...where};
-		return this;
-	}
-
-	fields<F extends Field<Pick<QEnv, QAccTables>>>(fields : F) : SelectQueryBuilder<QEnv, QAccTables>{
-		// if(fields === '*'){
-		// 	this.#fields = '*' as QFields & F;
-		// 	return this as any
-		// }
-		// if(this.#fields && this.#fields !== '*')
-		// 	this.#fields = {...this.#fields as Fields<QAccEnv>, ...fields} as QFields & F
-		// else
-		// 	this.#fields = fields as QFields & F;
-		return this;
-	}
-
-	// alias<A extends Alias<QEnv>>(aliases : A) : SelectQueryBuilder<AliasEnv<QEnv, A>, AliasString<QEnv, QFrom, A>, AliasEnv<QAccEnv, A>>{
-	// 	for(const [k, v] of Object.entries(aliases)){
-	// 		this.#aliases.set(v as string, k)
-	// 	}
-	// 	return this as any;
-	// }
-
-	join<J extends JoinExceptTables<QEnv, QAccTables>>(joins : J) : SelectQueryBuilder<QEnv, QAccTables | ExtractTableFromJoin<J>> {
-		return this;
-	}
-
-
-	// Usable for type monitoring
-	debugEnvKey(keyenv : keyof QEnv){};
-	debugAccTables(accenv : QAccTables){};
-	debugEnv(env : QEnv){};
 }
+
+
+export class EnvironmentSelectQueryBuilder<QEnv extends Environment, QAccessEnv extends Partial<QEnv>, QTableResult extends Table>{
+	#tablename : keyof QEnv;
+
+	#field : EnvironmentField<QAccessEnv> = '*';
+	#where : EnvironmentWhere<QAccessEnv> | undefined = undefined;
+
+	constructor(tablename : keyof QEnv){
+		this.#tablename = tablename;
+	}
+
+	field<EF extends EnvironmentField<QAccessEnv>>(field : EF) : EnvironmentSelectQueryBuilder<QEnv, QAccessEnv, TableResultFromEnvField<QAccessEnv, EF>>{
+		this.#field = field;
+		//@ts-ignore
+		return this;
+	}
+
+	where<EW extends EnvironmentWhere<QAccessEnv>>(where : EW) : EnvironmentSelectQueryBuilder<QEnv, QAccessEnv, QTableResult>{
+		this.#where = where;
+		return this;
+	}
+}
+
+const test1 = new SelectQueryBuilder<Table1, {}>("table1");
+const test2 = test1.field({
+	alias1 : 'column1',
+	alias2 : {
+		alias21 : 'column1',
+		alias22 : 'column4'
+	}
+});
 
 
 type Table1 = {
@@ -145,19 +85,6 @@ type TestEnv = {
 	table3 : Table3;
 }
 
-//SelectQueryBuilder<{table1 : Table1, table2 : Table2}>
-// new SelectQueryBuilder('big');
-
-// PAS NORMAL, devrait déjà être colley
-let test1 = new SelectQueryBuilder<TestEnv, 'table1'>('table1').alias({'alias3' : "table3"}).innerjoin({'table1.column1' : 'table2.column22', 'table1.column2' : 'table2.column21'}).alias({'anzfzf' : 'alias3'}).fields({'table1.column1' : ''});
-
-let test2 = new SelectQueryBuilder<TestEnv, 'table1'>('table1')
-
-type testj = {'table1.column1' : 'table2.column22', 'table1.column2' : 'table2.column21'}
-
-let testEvv : keyof NarrowTableEnv<TestEnv, 'table1'>;
-
-let testAccEnv :  keyof NarrowJoinEnv<TestEnv, testj>;
 
 /** Starts from an Environment and give Joins... 
 

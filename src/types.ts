@@ -9,29 +9,36 @@ export type Obj = {
 
 
 
-/**
-* Transform every none array properties in possible array
-**/
 
-export type Table = {[key : string] : any};
+export type AllowedColumnTypes = null | number | string | boolean | null[] | number[] | string[] | boolean[]
+
+export type Table = ({[key : string] :  AllowedColumnTypes } | {});
 export type Environment = {[key : string] : Table};
 export type FlattenedEnvironment = {[key : string] : any};
-
-
 /****************
 		UTILS
 *****************/
 
+/**
+* Transform every non-array typed properties in array typed properties
+**/
 	type UnArraying<T> = (T extends (infer U)[] ? U : T);
 	type Arraying<T> = Array<T extends (infer U)[] ? U : T>;
 	type Arrayed<T> = UnArraying<T> | Arraying<T>;
 	//type ObjectArrayed<T> = { [Prop in keyof T] : Arrayed<T[Prop]>;}
 
+/**
+ * Extract keys of type FV from an object
+ */
 	type KeysOfType<T, FV extends any> = {
 		[k in keyof T] : T[k] extends FV ? k : never;
 	}[keyof T];
 
-	type FlattenEnvironmentsKeys<TE extends Environment> = keyof {
+
+/**
+ * Get keys of FlattenEnvironment
+ */
+	type FlattenEnvironmentKeys<TE extends Partial<Environment>> = keyof {
 		[Key in (keyof TE) as Key extends string ? `${Key}.${keyof TE[Key] extends string ? keyof TE[Key] : never}` : never] : string;
 	}
 
@@ -40,18 +47,13 @@ export type FlattenedEnvironment = {[key : string] : any};
 		"table.prop" : type of prop
 	}
  */
-	type FlattenEnvironment<TE extends Environment> = {
-		[Key in FlattenEnvironmentsKeys<TE>] : Key extends `${infer T}.${infer C}` ? TE[T][C] : never;
+	type FlattenEnvironment<TE extends Partial<Environment>> = {
+		[Key in FlattenEnvironmentKeys<TE>] : Key extends `${infer T}.${infer C}` ? (T extends keyof TE ? (C extends keyof TE[T] ? TE[T][C] : never) : never): never;
 	}
 
-	type FlattenEnvironmentExceptTable<TE extends Environment, ExceptTable extends string> = {
-		[Key in FlattenEnvironmentsKeys<TE> as Key extends `${infer T}.${string}` ? (T extends ExceptTable ? never : Key ) : never] : Key extends `${infer T}.${infer C}` ? TE[T][C] : never;
+	type FlattenEnvironmentExceptTable<TE extends  Partial<Environment>, ExceptTable extends string> = {
+		[Key in FlattenEnvironmentKeys<TE> as Key extends `${infer T}.${string}` ? (T extends ExceptTable ? never : Key ) : never] : Key extends `${infer T}.${infer C}` ? (T extends keyof TE ? (C extends keyof TE[T] ? TE[T][C] : never) : never): never;
 	}
-
-	type FlattenEnvironmentOnlyTable<TE extends Environment, OnlyTable extends string> = {
-		[Key in FlattenEnvironmentsKeys<TE> as Key extends `${infer T}.${string}` ? (T extends OnlyTable ? Key : never ) : never] : Key extends `${infer T}.${infer C}` ? TE[T][C] : never;
-	}
-
 
 
 
@@ -71,132 +73,227 @@ export type FlattenedEnvironment = {[key : string] : any};
 /****************
 		FIELD
 *****************/
-/**
-	{
-		alias : column,
-		alias : {						// Build a json object
-			alias : column,
-			alias : column,
-			alias : column
-		} 
-		agg:column@alias : {			// Build a json object and agg over column
-			alias : column
-			alias : column
-			alias : column
-		} 
-		agg:column@alias : column
-	}
-	
-	||
 
-	["column@alias", "column"]
+	/**
 
-	||
-
-	"column"
-
-	||
-
-	*
-*/
-
-type TableFieldObject<T extends Table> =  (
-		{ [k in keyof T]? : string }
-		&
-		{ [k in keyof T as k extends string ? `agg:${k}` | `agg:${k}@${string}` : never]? : TableFieldObject<T> | Array<keyof T | `${keyof T extends string ? keyof T : never}@${string}` | TableFieldObject<T>>}
-	)
-
-type TableField<T extends Table> = 
-	'*'
-	| keyof T
-	| `${keyof T extends string ? keyof T : never}@${string}`
-	| TableFieldObject<T>
-	| Array<keyof T | `${keyof T extends string ? keyof T : never}@${string}` | TableFieldObject<T>>
-
-// export type TableField<T extends Table> = 
-// 	'*'
-// 	| Array<keyof T> 
-// 	| Array<`${keyof T extends string ? keyof T : never}@${string}`> 
-// 	| keyof T
-// 	| `${keyof T extends string ? keyof T : never}@${string}`
-// 	| (
-// 		{ [k in string] : k extends `${string}@${string}` | `${string}:${string}` ? never : keyof T }
-// 		&
-// 		{ [k in keyof T as k extends string ? `agg:${k}` | `agg:${k}@${string}` : never] : {[k : string] : keyof T}}
-// 		)
-
-
-export type Field<TE extends Environment> = 
-	'*' 
-	| Array<FlattenEnvironmentsKeys<TE> | `${FlattenEnvironmentsKeys<TE>}@${string}`>
-	| `${FlattenEnvironmentsKeys<TE>}@${string}`
-	| FlattenEnvironmentsKeys<TE>
-	| 
-	(
-		{ [k in string] : (k extends `${string}@${string}` | `${string}:${string}` ? never : FlattenEnvironmentsKeys<TE>) | { [k in string] : FlattenEnvironmentsKeys<TE>}}
-		&
-		{ [k in FlattenEnvironmentsKeys<TE> as k extends string ? `agg:${FlattenEnvironmentsKeys<TE>}` | `agg:${FlattenEnvironmentsKeys<TE>}@${string}` : never]? : FlattenEnvironmentsKeys<TE> | { [k in string] : FlattenEnvironmentsKeys<TE>}}
-	)
-
-/// ERROR agg:${} pas string mais column !
-
-
-	type TM = {
-			table1 : {
-				a1 : string;
-				b1 : number;
-				c1 : number[];
-			},
-			table2 : {
-				a2 : string;
-				b2 : number;
-			},
-			table4 : {
-				a4 : number;
+	FOR ONE TABLE :
+		{
+			column : alias,
+			alias : ["column@alias", "column"]		// Build a json object
+			alias : {										// Build a json object
+				column : alias,
+				...
 			}
-		};
+		} 
+		|	["column@alias", "column"]
+		|	"column"
+		|	"column@alias"
+		|	"*"
 
-	let t : TableField<TM["table1"]> = {
-		c1 : 'c1',
-		"agg:b1" : ["a1", "c1"]
+	FOR ONE ENVIRONMENT :
+		{
+			table.column : alias,
+			alias : ["table.column@alias", "table.column"]
+			alias : {
+				table.column : alias
+			}
+		}
+		| ["table.column@alias", "table.column"]
+		| "table.column"
+		| "table.column@alias"
+		| "table.*"
+		| "*"
+	*/
+
+	///
+	// FIELD FROM TABLE
+	///
+
+		type TableFieldArray<T extends Table> = Array<keyof T | `${keyof T extends string ? keyof T : never}@${string}`>; 
+		type TableFieldObjectType<T extends Table> = TableFieldObject<T> | TableFieldArray<T>;
+		type TableFieldObject<T extends Table> =  { [k in string as k extends keyof T ? never : k]? : TableFieldObjectType<T> } | { [k in keyof T]? : string}
+		export type TableField<T extends Table> = 
+			'*'
+			| TableFieldArray<T>
+			| keyof T | `${keyof T extends string ? keyof T : never}@${string}`
+			| TableFieldObject<T>
+
+		// For environment, treat its flatten version as a table
+		export type EnvironmentField<TE extends Partial<Environment>> = 
+			`${keyof TE extends string ? keyof TE : never}.*`
+			| TableField<FlattenEnvironment<TE>>
+
+
+	///
+	// TABLE FROM FIELD
+	///
+
+	// Get Table from ['column', 'column@alias'] ('column', 'alias')
+	type TableFromFieldArray<T extends Table, TF extends TableField<T>> = TF extends Array<infer U> ? { 
+			[k in U as k extends keyof T ? k : (keyof T extends string ? (k extends `${keyof T}@${infer alias}` ? alias : never) : never)] : k extends keyof T ? T[k] : (k extends `${infer tk}@${string}` ? (tk extends keyof T ? T[tk] : never) : never) 
+		} : never;
+
+	// Get Table from
+	// {
+	// 	column : alias,
+	// 	alias : ["column@alias", "column"]		// Build a json object
+	// 	alias : {										// Build a json object
+	// 		column : alias,
+	// 		...
+	// 	}
+	// } 
+	type TableFromFieldObject<T extends Table, TF extends TableField<T>> = 	TF extends TableFieldObject<T> ? (
+			{ [k in keyof TF as k extends keyof T ? (TF[k] extends string ? TF[k] : never) : never] : k extends keyof T ? T[k] : never} 	// 'column' : 'alias'
+		& 	{ 
+				[k in keyof TF as k extends keyof T ? never : k] : TF[k] extends Array<string> ? 
+					TableFromFieldArray<T, TF[k]>																																// alias : ['column@alias', 'column']
+					:
+					TableFromFieldObject<T, TF[k]>																														// alias : {column : alias, ...}
+			}
+		) : never
+
+	type TableFromField<T extends Table, TF extends TableField<T>> = 
+		TF extends "*" ? T : never																																					// '*'
+		| TF extends keyof T ? { [k in TF as k extends string ? k : never] : TF extends keyof T ? T[TF] : never } : never									// 'column'
+		| TF extends `${string}@${infer alias}` ? 																																// 'column@alias'
+			{ [a in alias as a extends string ? a : never] : (TF extends `${infer k}@${string}` ? (k extends keyof T ? T[k] : never) : never) } 
+			: never	
+		| TableFromFieldArray<T, TF>
+		| TableFromFieldObject<T, TF>
+
+	type EnvironmentFromField<TE extends Partial<Environment>, TF extends EnvironmentField<TE>> = 
+		
+		TableFromField<FlattenEnvironment<TE>, TF>
+
+
+type TM = {
+		table1 : {
+			a1 : string;
+			b1 : number;
+			c1 : number[];
+		},
+		table2 : {
+			a2 : string;
+			b2 : number;
+		},
+		table4 : {
+			a4 : number;
+		}
+	};
+
+// let envfield : EnvironmentField<TM> = {
+// 	"table1.a1" : "aaa",
+// 	"ajeeh" : ["table1.a1@aajjaja"]
+// };
+
+let tablefield : TableField<TM["table1"]> = {
+	'a1' : "column1",
+	'b1' : "column2",
+	'aaa' : ["a1@aajjaja", 'c1'],
+	'bbbb' : {
+		a1 : '444'
 	}
+}
 
-/**
-* Type to check if duplicate
-if has => t.column
-if not column
+let envfield : {
+	"table1.a1" : "aaa",
+	"ajeeh" : ["table1.a1@aajjaja"]
+} = {
+	"table1.a1" : "aaa",
+	"ajeeh" : ["table1.a1@aajjaja"]
+};
 
-object normal need to 
-*/
+let fzfez : TableFromField<TM["table1"], '*'>;
 
-export type TableFromField<TE extends Environment, EF extends Field<TE>> = EF extends '*' ? keyof : (
-{
-	[Key in keyof EF as Key extends `${infer Alias}@${string}`? Alias : never] : 'ok';
-})
 
-// type NoAliasColumnSelect<T extends Table> = {
-// 	'!@' : Array<keyof T>;
-// }
+// // type TableResultFromFieldType<T extends Table, TFT extends TableFieldType<T>> = 
+// // 	TableResultFromFieldArrayCase<T, TFT>	
+// // 	|
+// // 	(TFT extends keyof T ? T[TFT] : never)
+// // 	|
+// // 	(TFT[keyof TFT] extends TableFieldType<T> ? 
+// // 			({ [u in keyof TFT]? : TFT[u] extends TableFieldType<T> ? TableResultFromFieldType<T, TFT[u]> : never}) : 
+// // 		never
+// // 	)
 
-// type AliasColumnSelect<T extends Table> = {
-// 	keyof : keyof T;
-// }
+// type TableResultTypeFromFieldType<T extends Table, TFT extends TableFieldObjectType<T>> = 
+// 	TableResultFromFieldArrayCase<T, TFT>	
+// 	|
+// 	(TFT extends keyof T ? T[TFT] : never)
+// 	|
+// 	(TFT[keyof TFT] extends TableFieldObjectType<T> ? 
+// 			({ [u in keyof TFT]? : TFT[u] extends TableFieldObjectType<T> ? TableResultTypeFromFieldType<T, TFT[u]> : never}) : 
+// 		never
+// 	)
+// type TableResultFromFieldObjectCase<T extends Table, TF extends TableField<T>> = ({[u in keyof TF as u extends keyof T ? (TF[u] extends string ? TF[u] : never) : u]? : u extends keyof T ? T[u] : (TF[u] extends TableFieldObjectType<T> ? TableResultTypeFromFieldType<T, TF[u]>  : never )})
 
-// type JSONObjectSelect<T extends Table> = {
-// 	[k in keyof T as k extends string ? `json:${k}@${string}` : neve] : NoAliasColumnSelect<T> & (AliasColumnSelect<T> | JSONObjectSelect<T>);
-// }
+// //type TableResultFromFieldObjectCase<T extends Table, TF extends TableField<T>> = ({[u in keyof TF]? : TF[u] extends TableFieldType<T> ? TableResultFromFieldType<T, TF[u]> : never});
 
-// type SelectNoAgg<T extends Table> = Array<keyof T> | '*' | keyof T | (NoAliasColumnSelect<T> & (AliasColumnSelect<T> | JSONObjectSelect<T>));
+// export type TableResultFromField<T extends Table, TF extends TableField<T>> = 
+// 		TableResultFromFieldGlobalCase<T, TF> 
+// 	| TableResultFromFieldArrayCase<T,TF> //| TableResultFromFieldObjectCase<T, TF>;
 
-// type JAggSelect<T extends Table> = {
-// 	[k in keyof T as k extends string ? `jagg:${k}@${string}` : never]? : SelectNoAgg<T>;
-// }
 
-// export type Select<T extends Table> = string[] | (NoAliasColumnSelect<T> & JAggSelect<T> & (AliasColumnSelect<T> | JSONObjectSelect<T>));
 
-// export type EnvironmentSelect<TE extends Environment> = {
-// 	[k in keyof TE]? : Select<TE[k]>
-// }
+// // objective => having auto completion
+
+
+// // '*'
+// type TableResultFromEnvFieldGlobalCase<E extends Partial<Environment>, EF extends EnvironmentField<E>> = (EF extends '*' ? FlattenEnvironment<E> : never);
+// // ['table.column', 'table.column@alias']
+// type TableResultFromEnvFieldArrayCase<E extends Partial<Environment>, EF extends EnvironmentField<E>> = (EF extends Array<infer U> ? 
+// 	(
+// 		{ [u in U as u extends FlattenEnvironmentKeys<E> ? u : never]? : u extends FlattenEnvironmentKeys<E> ? FlattenEnvironment<E>[u] : never} &
+// 		{ [u in U as u extends `${FlattenEnvironmentKeys<E>}@${infer alias}` ? alias : never]? : u extends `${infer k}@${string}` ? (k extends FlattenEnvironmentKeys<E> ? FlattenEnvironment<E>[k] : never) : never}
+// 	) : never);
+// /**
+// 	{
+// 		alias : table.column,
+// 		alias : ['table.column', 'table.column@alias],
+// 		alias : {
+// 			alias : table.column,
+// 			alias : ['table.column', 'table.column@alias],
+// 			alias : {...}
+// 			...
+// 		}
+// 		...
+// 	}
+//  */
+// type TableResultFromEnvFieldType<E extends Partial<Environment>, EFT extends TableFieldObjectType<FlattenEnvironment<E>>> = 
+// 	TableResultFromEnvFieldArrayCase<E, EFT>
+// 	|
+// 	(EFT extends FlattenEnvironmentKeys<E> ? FlattenEnvironment<E>[EFT] : never)
+// 	|
+// 	(EFT[keyof EFT] extends TableFieldObjectType<FlattenEnvironment<E>> ? ({ [u in keyof EFT]? : EFT[u] extends TableFieldObjectType<FlattenEnvironment<E>> ? TableResultFromEnvFieldType<E, EFT[u]> : never}) : never)
+// type TableResultFromEnvFieldObjectCase<E extends Partial<Environment>, EF extends EnvironmentField<E>> = ({[ u in keyof EF]? : EF[u] extends TableFieldObjectType<FlattenEnvironment<E>> ? TableResultFromEnvFieldType<E, EF[u]> : never});
+
+// export type TableResultFromEnvField<E extends Partial<Environment>, EF extends EnvironmentField<E>> = TableResultFromEnvFieldGlobalCase<E, EF> | TableResultFromEnvFieldArrayCase<E, EF> | TableResultFromEnvFieldObjectCase<E, EF>;
+
+
+/****************
+		TESTS
+*****************/
+
+
+
+let res : TableResultFromField<TM["table1"], {
+		c1 : "c1",
+		"test" : ["a1@aaa", "b1"]
+	}> = {
+	test : {
+		aaa : 'aaa',
+	}
+}
+
+let res1 : TableResultFromEnvField<TM, {
+	c1 : 'table1.c1',
+	test : ['table1.a1@aaa', "table1.b1"]
+}> = {
+	test : {
+		aaa : 'aaa',
+		"table1.b1" : 4
+	}
+}
 
 
 
@@ -242,6 +339,9 @@ WHERE<Tables>
 
 */
 
+
+// TABLE => WHERE
+
 	type prefixedPropWhere<T, P extends string> = {
 		[k in keyof T as k extends string ? `${P}${k}` : never]? : Arrayed<T[k] | null> |  TableWhere<T>[];//| amputedWhere<Where<T>, k> | amputedWhere<Where<T>, k>[];
 	}
@@ -273,10 +373,7 @@ WHERE<Tables>
 		{ [k in `&&${string}`]? : TableWhere<T>[]}
 
 
-	export type Where<T> = { [k in keyof T ]? : TableWhere<T[k]>} & {[k in `&&${string}`]? : Where<T>[]};
-
-
-
+	export type EnvironmentWhere<T> = { [k in keyof T ]? : TableWhere<T[k]>} & {[k in `&&${string}`]? : EnvironmentWhere<T>[]};
 
 
 
@@ -310,14 +407,17 @@ WHERE<Tables>
 		[k in keyof FTM as FTM[k] extends ColumnType ? k : never] : any;
 	}
 
-
-
+	// 
 	type MultipleColumnsJoints<TE extends Environment, Table extends keyof TE & string> = {
-		[Key in keyof TE[Table]]? : JoinCandidateColumns<FlattenEnvironmentExceptTable<TE, Table>, TE[Table][Key]>
+		[Key in keyof TE[Table]]? : (TE[Table][Key] extends string | number ? JoinCandidateColumns<FlattenEnvironmentExceptTable<TE, Table>, TE[Table][Key]> : never)
 	}
 
 	type OneColumnJoints<TE extends Environment, Table extends keyof TE & string> = keyof {
-		[Key in keyof TE[Table] as Key extends string ? `${Key}/${JoinCandidateColumns<FlattenEnvironmentExceptTable<TE, Table>, TE[Table][Key]> extends string ? JoinCandidateColumns<FlattenEnvironmentExceptTable<TE, Table>, TE[Table][Key]> : never}` : never]? : any
+		[Key in keyof TE[Table] as Key extends string ? 
+			(TE[Table][Key] extends string | number ? 
+				`${Key}/${JoinCandidateColumns<FlattenEnvironmentExceptTable<TE, Table>, TE[Table][Key]> extends string ? JoinCandidateColumns<FlattenEnvironmentExceptTable<TE, Table>, TE[Table][Key]> : never}`
+				: never
+			) : never]? : any
 	}
 
 
@@ -325,11 +425,11 @@ WHERE<Tables>
 		[Key in keyof TE as Key extends string ? `${'' | 'r:' | 'i:' | 'l:' | 'f:'}${Key}${'' | `@${string}`}` : never]? : Key extends string ? OneColumnJoints<TE, Key> | MultipleColumnsJoints<TE, Key> : never;
 	}
 
-	export type JoinExceptTables<TE extends Environment, Tables extends keyof (TE & string) | undefined = undefined> = {
+	export type JoinExceptTables<TE extends Environment, Tables extends keyof TE | undefined = undefined> = {
 		[Key in keyof TE as Key extends Tables ? never : (Key extends string ? `${'' | 'r:' | 'i:' | 'l:' | 'f:'}${Key}${'' | `@${string}`}` : never)]? : Key extends string ? OneColumnJoints<TE, Key> | MultipleColumnsJoints<TE, Key> : never;
 	}
 
-	export type ExtractTableFromJoin<EJ extends {[k : string | symbol] : any}> = 
+	export type ExtractAccessibleTableNamesFromJoin<EJ extends {[k : string | symbol] : any}> = 
 		keyof { [Key in keyof EJ as Key extends `${string}:${infer T}@${string}` ? T : never] : any }
 		|
 		keyof { [Key in keyof EJ as Key extends `${string}:${string}@${string}` ? never : (Key extends `${infer T}@${string}` ? T : never)] : any }
@@ -338,7 +438,7 @@ WHERE<Tables>
 		|
 		keyof { [Key in keyof EJ as Key extends `${string}:${string}@${string}` |  `${string}@${string}` | `${string}:${string}` ? never : (Key extends `${infer T}` ? T : never)] : any }
 
-
+	export type EnvironmentFromNameAndJoin<E extends Environment, N extends keyof E, EJ extends {[k : string | symbol] : any}> = {[key in N] : E[key]} & Pick<E, ExtractAccessibleTableNamesFromJoin<EJ>>;
 
 
 
@@ -360,7 +460,7 @@ export type DeleteQueryFunction<T extends Table> = <R extends Partial<T>>(where 
 
 type Table1 = {
 	column1 : string;
-	column2 : number;
+	column2 : number[];
 	column3 : number;
 	column4 : string[];
 	column5 : 'EEE';
@@ -390,8 +490,16 @@ type testenv = {
 	table3 : Table3;
 }
 
-type testaccenv = {
-	table1 : Table1;
+let jj : Join<testenv> = {
+	"f:table1" : {
+		column1 : "table2.column22",
+		column3 : "table2.column21"
+	},
+	"i:table3" : "column33/table1.column5"
+}
+
+let jjj : JoinExceptTables<testenv, "table1"> = {
+	"f:table2" :"column21/table1.column2"
 }
 
 type j = {'table1.column1' : 'table2.column22', 'table1.column2' : 'table2.column21'}
