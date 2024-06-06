@@ -12,7 +12,7 @@ export type Obj = {
 
 export type AllowedColumnTypes = null | number | string | boolean | null[] | number[] | string[] | boolean[]
 
-export type Table = ({[key : string] :  AllowedColumnTypes } | {});
+export type Table = ({[key : string | number | symbol] :  AllowedColumnTypes } | {});
 export type Environment = {[key : string] : Table};
 export type FlattenedEnvironment = {[key : string] : any};
 /****************
@@ -152,8 +152,8 @@ export type FlattenedEnvironment = {[key : string] : any};
 			}
 		) : never
 
-	type TableFromField<T extends Table, TF extends TableField<T>> = 
-		TF extends "*" ? T : never																																					// '*'
+	export type TableFromTableField<T extends Table, TF extends TableField<T>> = 
+		(TF extends "*" ? T : never)																																					// '*'
 		| TF extends keyof T ? { [k in TF as k extends string ? k : never] : TF extends keyof T ? T[TF] : never } : never									// 'column'
 		| TF extends `${string}@${infer alias}` ? 																																// 'column@alias'
 			{ [a in alias as a extends string ? a : never] : (TF extends `${infer k}@${string}` ? (k extends keyof T ? T[k] : never) : never) } 
@@ -161,10 +161,19 @@ export type FlattenedEnvironment = {[key : string] : any};
 		| TableFromFieldArray<T, TF>
 		| TableFromFieldObject<T, TF>
 
-	type EnvironmentFromField<TE extends Partial<Environment>, TF extends EnvironmentField<TE>> = 
-		
-		TableFromField<FlattenEnvironment<TE>, TF>
+	export type TableFromEnvField<TE extends Partial<Environment>, TF extends EnvironmentField<TE>> = 
+		(TF extends `${infer k}.*` ? (k extends keyof TE ? TE[k] : never) : never)
+		| TableFromTableField<FlattenEnvironment<TE>, TF>
 
+let t : TableFromEnvField<TM, EnvironmentField<TM>> = {};
+
+
+
+function eeeeefzf(t : Table){
+	return "aaa"
+}
+
+eeeeefzf(t);
 
 type TM = {
 		table1 : {
@@ -181,10 +190,10 @@ type TM = {
 		}
 	};
 
-// let envfield : EnvironmentField<TM> = {
-// 	"table1.a1" : "aaa",
-// 	"ajeeh" : ["table1.a1@aajjaja"]
-// };
+let envfield : EnvironmentField<TM> = {
+	"table1.a1" : "aaa",
+	"ajeeh" : ["table1.a1@aajjaja", 'table4.a4']
+};
 
 let tablefield : TableField<TM["table1"]> = {
 	'a1' : "column1",
@@ -195,105 +204,19 @@ let tablefield : TableField<TM["table1"]> = {
 	}
 }
 
-let envfield : {
+let tablefromfield : TableFromTableField<TM["table1"], '*'>;
+
+let envfromfield : TableFromEnvField<TM, {
 	"table1.a1" : "aaa",
-	"ajeeh" : ["table1.a1@aajjaja"]
-} = {
-	"table1.a1" : "aaa",
-	"ajeeh" : ["table1.a1@aajjaja"]
-};
-
-let fzfez : TableFromField<TM["table1"], '*'>;
-
-
-// // type TableResultFromFieldType<T extends Table, TFT extends TableFieldType<T>> = 
-// // 	TableResultFromFieldArrayCase<T, TFT>	
-// // 	|
-// // 	(TFT extends keyof T ? T[TFT] : never)
-// // 	|
-// // 	(TFT[keyof TFT] extends TableFieldType<T> ? 
-// // 			({ [u in keyof TFT]? : TFT[u] extends TableFieldType<T> ? TableResultFromFieldType<T, TFT[u]> : never}) : 
-// // 		never
-// // 	)
-
-// type TableResultTypeFromFieldType<T extends Table, TFT extends TableFieldObjectType<T>> = 
-// 	TableResultFromFieldArrayCase<T, TFT>	
-// 	|
-// 	(TFT extends keyof T ? T[TFT] : never)
-// 	|
-// 	(TFT[keyof TFT] extends TableFieldObjectType<T> ? 
-// 			({ [u in keyof TFT]? : TFT[u] extends TableFieldObjectType<T> ? TableResultTypeFromFieldType<T, TFT[u]> : never}) : 
-// 		never
-// 	)
-// type TableResultFromFieldObjectCase<T extends Table, TF extends TableField<T>> = ({[u in keyof TF as u extends keyof T ? (TF[u] extends string ? TF[u] : never) : u]? : u extends keyof T ? T[u] : (TF[u] extends TableFieldObjectType<T> ? TableResultTypeFromFieldType<T, TF[u]>  : never )})
-
-// //type TableResultFromFieldObjectCase<T extends Table, TF extends TableField<T>> = ({[u in keyof TF]? : TF[u] extends TableFieldType<T> ? TableResultFromFieldType<T, TF[u]> : never});
-
-// export type TableResultFromField<T extends Table, TF extends TableField<T>> = 
-// 		TableResultFromFieldGlobalCase<T, TF> 
-// 	| TableResultFromFieldArrayCase<T,TF> //| TableResultFromFieldObjectCase<T, TF>;
-
-
-
-// // objective => having auto completion
-
-
-// // '*'
-// type TableResultFromEnvFieldGlobalCase<E extends Partial<Environment>, EF extends EnvironmentField<E>> = (EF extends '*' ? FlattenEnvironment<E> : never);
-// // ['table.column', 'table.column@alias']
-// type TableResultFromEnvFieldArrayCase<E extends Partial<Environment>, EF extends EnvironmentField<E>> = (EF extends Array<infer U> ? 
-// 	(
-// 		{ [u in U as u extends FlattenEnvironmentKeys<E> ? u : never]? : u extends FlattenEnvironmentKeys<E> ? FlattenEnvironment<E>[u] : never} &
-// 		{ [u in U as u extends `${FlattenEnvironmentKeys<E>}@${infer alias}` ? alias : never]? : u extends `${infer k}@${string}` ? (k extends FlattenEnvironmentKeys<E> ? FlattenEnvironment<E>[k] : never) : never}
-// 	) : never);
-// /**
-// 	{
-// 		alias : table.column,
-// 		alias : ['table.column', 'table.column@alias],
-// 		alias : {
-// 			alias : table.column,
-// 			alias : ['table.column', 'table.column@alias],
-// 			alias : {...}
-// 			...
-// 		}
-// 		...
-// 	}
-//  */
-// type TableResultFromEnvFieldType<E extends Partial<Environment>, EFT extends TableFieldObjectType<FlattenEnvironment<E>>> = 
-// 	TableResultFromEnvFieldArrayCase<E, EFT>
-// 	|
-// 	(EFT extends FlattenEnvironmentKeys<E> ? FlattenEnvironment<E>[EFT] : never)
-// 	|
-// 	(EFT[keyof EFT] extends TableFieldObjectType<FlattenEnvironment<E>> ? ({ [u in keyof EFT]? : EFT[u] extends TableFieldObjectType<FlattenEnvironment<E>> ? TableResultFromEnvFieldType<E, EFT[u]> : never}) : never)
-// type TableResultFromEnvFieldObjectCase<E extends Partial<Environment>, EF extends EnvironmentField<E>> = ({[ u in keyof EF]? : EF[u] extends TableFieldObjectType<FlattenEnvironment<E>> ? TableResultFromEnvFieldType<E, EF[u]> : never});
-
-// export type TableResultFromEnvField<E extends Partial<Environment>, EF extends EnvironmentField<E>> = TableResultFromEnvFieldGlobalCase<E, EF> | TableResultFromEnvFieldArrayCase<E, EF> | TableResultFromEnvFieldObjectCase<E, EF>;
-
-
-/****************
-		TESTS
-*****************/
-
-
-
-let res : TableResultFromField<TM["table1"], {
-		c1 : "c1",
-		"test" : ["a1@aaa", "b1"]
-	}> = {
-	test : {
-		aaa : 'aaa',
-	}
-}
-
-let res1 : TableResultFromEnvField<TM, {
-	c1 : 'table1.c1',
-	test : ['table1.a1@aaa', "table1.b1"]
+	"ajeeh" : ["table1.a1@aajjaja", 'table4.a4']
 }> = {
-	test : {
-		aaa : 'aaa',
-		"table1.b1" : 4
+	aaa : "aaazvav",
+	ajeeh : {
+		"table4.a4" : 4,
+		aajjaja : "aaa"
 	}
 }
+
 
 
 
@@ -336,6 +259,53 @@ WHERE<Tables>
 		table2 : TABLEWHERE<Table2>,
 		"&&:anyname" : WHERE<Tables>
 	}
+
+{
+	prop : [] | typeof prop
+	"operator:prop" : [] | typeof
+	prop : {
+		_ : [] | '',
+		otherthanprop :  [] | typeof
+	}
+}
+
+{
+	a : "a",
+	b : [{
+			_ : "b2",
+			a : "a2",
+		},
+		{
+			_ : "b1",
+			a : "a1"
+		},
+		{
+			_ : "b3",
+			c : [{
+				_ : "c1",
+				d : "d1"
+			},
+			{
+				_ : "c2",
+				d : "d2"
+			}
+			]
+		}
+}
+
+Will translate in :
+	a = "a" 
+	AND 
+	(
+			(b = "b2" AND a = "a2") 
+		OR (b = "b1" AND a = "a1") 
+		OR (b = "b3" AND 
+				(
+						(c = "c1" AND d = "d1") 
+					OR (c = "c2" AND d = "d2")
+				)
+			)
+	)
 
 */
 
@@ -440,75 +410,15 @@ WHERE<Tables>
 
 	export type EnvironmentFromNameAndJoin<E extends Environment, N extends keyof E, EJ extends {[k : string | symbol] : any}> = {[key in N] : E[key]} & Pick<E, ExtractAccessibleTableNamesFromJoin<EJ>>;
 
+	export type EnvironmentFromJoin<GlobalEnv extends Environment, AccEnv extends Environment, J extends Join<GlobalEnv>> = AccEnv & Pick<GlobalEnv, ExtractAccessibleTableNamesFromJoin<J>>
 
 
 
-/****************
-		QUERIES
-*****************/
-
-export type SelectQueryFunction<T extends Table> = <R extends Partial<T>>(where: TableWhere<T> | TableWhere<T>[], select?: TableField<T> | '*', limit?: number, offset?: number, orderby?: OrderBy<T>) => Promise<QueryResult<R>>;
-export type InsertQueryFunction<T extends Table> = <R extends Partial<T>>(data: Insert<T>, returning?: TableField<T> | '*') => Promise<QueryResult<R>>;
-export type ExistsQueryFunction<T extends Table> = (where: TableWhere<T> | TableWhere<T>[], nb? : number) => Promise<boolean>;
-export type UpdateQueryFunction<T extends Table> = <R extends Partial<T>>(where : TableWhere<T> | TableWhere<T>[], data : {[Prop in keyof T]? : T[Prop] | null}, returning? : TableField<T> | '*') => Promise<QueryResult<R>>;
-export type DeleteQueryFunction<T extends Table> = <R extends Partial<T>>(where : TableWhere<T> | TableWhere<T>[], returning? : TableField<T> | '*') => Promise<QueryResult<R>>;
-
-
-// Flatten
 
 
 
-type Table1 = {
-	column1 : string;
-	column2 : number[];
-	column3 : number;
-	column4 : string[];
-	column5 : 'EEE';
-	column6 : boolean;
-}
 
-let teeez : TableField<Table1> = {
-	'aaa' : "column1",
-	'bbbaaje:eee' : "column2",
-}
-
-interface Table2{
-	column21 : number;
-	column22 : string;
-	column23 : 'EEE';
-}
-
-interface Table3{
-	column31 : Array<number>;
-	column32 : Array<string>;
-	column33 : 'EEE';
-}
-
-type testenv = {
-	table1 : Table1;
-	table2 : Table2;
-	table3 : Table3;
-}
-
-let jj : Join<testenv> = {
-	"f:table1" : {
-		column1 : "table2.column22",
-		column3 : "table2.column21"
-	},
-	"i:table3" : "column33/table1.column5"
-}
-
-let jjj : JoinExceptTables<testenv, "table1"> = {
-	"f:table2" :"column21/table1.column2"
-}
-
-type j = {'table1.column1' : 'table2.column22', 'table1.column2' : 'table2.column21'}
-
-type alias = {
-	alias1 : "table1";
-}
-
-
+export interface Query<GlobalEnv extends Environment, AccessibleEnv extends Environment, TableResult extends Table = {}>{}
 
 
 // Ajouter une étape : s'il extends string ajout d'un point... ?
@@ -520,7 +430,6 @@ type alias = {
 */
 type UnionToIntersection<U> =
 	(U extends any ? (k: U) => void : never) extends ((k: infer I) => void) ? I : never
-
 type LastOf<T> =
 	UnionToIntersection<T extends any ? () => T : never> extends () => (infer R) ? R : never
 
@@ -535,29 +444,3 @@ type ObjValueTuple<T, KS extends any[] = TuplifyUnion<keyof T>, R extends any[] 
 	KS extends [infer K, ...infer KT]
 	? ObjValueTuple<T, KT, [...R, T[K & keyof T]]>
 	: R
-
-
-
-export interface Querier{
-	query : <R extends QueryResultRow>(text: string | QueryConfig, values?: any[]) => Promise<QueryResult<R>>
-}
-
-
-
-export interface QueryConfig<I extends any[] = any[]> {
-	name?: string | undefined;
-	text: string;
-	values?: I | undefined;
-}
-
-export interface QueryResultRow {
-	[column: string]: any;
-}
-
-export interface QueryResult<R extends QueryResultRow = any> {
-	rows: R[];
-	rowCount: number;
-}
-
-// Should where with an environment be with multiple joins ? Or not...
-// Should be multiple properties ?
