@@ -4,4 +4,4 @@
 
 @file src/types.ts
 
- */
+*/

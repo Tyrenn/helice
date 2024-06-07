@@ -1,4 +1,4 @@
-import {Environment, EnvironmentField, EnvironmentFromJoin, EnvironmentWhere, Join, Table, TableFromEnvField, Query} from './types';
+import {Environment, EnvironmentField, EnvironmentFromJoin, EnvironmentWhere, Join, Table, TableFromEnvField} from './types';
 
 type SelectQueryQuildOptions = {
 	where? : boolean,
@@ -12,7 +12,7 @@ type QueryBuildedParamFromOptions<Options extends SelectQueryQuildOptions, Acces
 	...(Options["limit"] extends true ? [number] : []),
 	]
 
-export class SelectQuery<GlobalEnv extends Environment, AccessibleEnv extends Environment, TableResult extends Table = {}, HasOptions extends Required<SelectQueryQuildOptions> = {where : false, limit : false, field : false}> implements Query<GlobalEnv, AccessibleEnv, TableResult>{
+export class SelectQuery<GlobalEnv extends Environment, AccessibleEnv extends Environment, TableResult extends Table = {}, HasOptions extends Required<SelectQueryQuildOptions> = {where : false, limit : false, field : false}>{
 	
 	#from : keyof GlobalEnv;
 	#field : EnvironmentField<AccessibleEnv> = '*';
