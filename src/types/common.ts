@@ -6,7 +6,7 @@ export type Table = ({[key : string | number | symbol] :  AllowedColumnTypes } |
 export type Environment = {[key : string] : Table};
 export type FlattenedEnvironment = {[key : string] : any};
 
-
+export type Obj = {[key : string] : any};
 
 
 /// UTILS

@@ -1,94 +1,93 @@
-import { Arrayed, TableWhere, Obj, QueryResult, TableField, OrderBy, PostgreDAO, Insert, SelectQueryFunction, InsertQueryFunction, ExistsQueryFunction, UpdateQueryFunction, DeleteQueryFunction, tsqueryWhere } from './types.js';
+//import { Arrayed, TableWhere, Obj, QueryResult, TableField, OrderBy, PostgreDAO, Insert, SelectQueryFunction, InsertQueryFunction, ExistsQueryFunction, UpdateQueryFunction, DeleteQueryFunction, tsqueryWhere } from './types/index.js';
+
+import {Obj, tsqueryWhere} from './types';
 
 /* Simple query build functions */
 
-export function buildSelect<O>(tablename : string) : SelectQueryFunction<O> {
-	return async function<R extends Partial<O>>(this : PostgreDAO, where: TableWhere<O> | TableWhere<O>[], select?: TableField<O> | '*', limit?: number, offset?: number, orderby?: OrderBy<O>): Promise<QueryResult<R>> {
-		const whereflt = WheretoSQL(where);
-		const query =
-			{
-				text: `	SELECT ${select ? toSELECTClause(select) : '*'}
-							FROM ${tablename}
-							WHERE ${whereflt.where}
-							${orderby ? 'ORDER BY ' + toORDERBYClauses(orderby) : ""}
-							${limit ? "LIMIT " + limit : ""} ${offset ? "OFFSET " + offset : ""}`,
-				values : whereflt.values
-			}
- 
-		return await this.db.query<R>(query);
-	}
-}
+// export function buildSelect<O>(tablename : string) : SelectQueryFunction<O> {
+// 	return async function<R extends Partial<O>>(this : PostgreDAO, where: TableWhere<O> | TableWhere<O>[], select?: TableField<O> | '*', limit?: number, offset?: number, orderby?: OrderBy<O>): Promise<QueryResult<R>> {
+// 		const whereflt = WheretoSQL(where);
+// 		const query =
+// 			{
+// 				text: `	SELECT ${select ? toSELECTClause(select) : '*'}
+// 							FROM ${tablename}
+// 							WHERE ${whereflt.where}
+// 							${orderby ? 'ORDER BY ' + toORDERBYClauses(orderby) : ""}
+// 							${limit ? "LIMIT " + limit : ""} ${offset ? "OFFSET " + offset : ""}`,
+// 				values : whereflt.values
+// 			}
+
+// 		return await this.db.query<R>(query);
+// 	}
+// }
 
 
-export function buildSelectJoin<Table, JoinedTable extends { [k : string] : { [k : string] : any}} >(tablename : string, joins : { [[]]})
+// export function buildInsert<O>(tablename : string) : InsertQueryFunction<O>{
+// 	return async function <R extends Partial<O>>(this : PostgreDAO, data: Insert<O>, returning?: TableField<O> | '*') : Promise<QueryResult<R>> {
+// 		const dataflt = toINSERTClauses(data);
+// 		const query = 
+// 			{
+// 				text : `	INSERT INTO
+// 							${tablename}(${dataflt.properties})
+// 							VALUES ${dataflt.variables}
+// 							${returning ? "RETURNING " + toSELECTClause(returning) : ""}
+// 						`,
+// 				values : dataflt.values
+// 			}
+// 		return await this.db.query<R>(query);
+// 	}
+// }
+
+// export function buildExists<O>(tablename : string) : ExistsQueryFunction<O>{
+// 	return async function(this : PostgreDAO, where: TableWhere<O> | TableWhere<O>[], nb? : number) : Promise<boolean> {
+// 		const whereflt = WheretoSQL(where);
+// 		const query = {
+// 			text: `	SELECT EXISTS(
+// 							SELECT 1
+// 							FROM ${tablename}
+// 							WHERE ${whereflt.where}
+// 							${nb ? 'LIMIT 1 OFFSET (' + (nb-1) + ')' : ''}
+// 						)
+// 						AS exists`,
+// 			values: whereflt.values
+// 		};
+// 		const result = await this.db.query<{exists : boolean}>(query);
+
+// 		return (result.rows.length >= 1 && result.rows[0].exists);
+// 	}
+// }
 
 
-export function buildInsert<O>(tablename : string) : InsertQueryFunction<O>{
-	return async function <R extends Partial<O>>(this : PostgreDAO, data: Insert<O>, returning?: TableField<O> | '*') : Promise<QueryResult<R>> {
-		const dataflt = toINSERTClauses(data);
-		const query = 
-			{
-				text : `	INSERT INTO
-							${tablename}(${dataflt.properties})
-							VALUES ${dataflt.variables}
-							${returning ? "RETURNING " + toSELECTClause(returning) : ""}
-						`,
-				values : dataflt.values
-			}
-		return await this.db.query<R>(query);
-	}
-}
-
-export function buildExists<O>(tablename : string) : ExistsQueryFunction<O>{
-	return async function(this : PostgreDAO, where: TableWhere<O> | TableWhere<O>[], nb? : number) : Promise<boolean> {
-		const whereflt = WheretoSQL(where);
-		const query = {
-			text: `	SELECT EXISTS(
-							SELECT 1
-							FROM ${tablename}
-							WHERE ${whereflt.where}
-							${nb ? 'LIMIT 1 OFFSET (' + (nb-1) + ')' : ''}
-						)
-						AS exists`,
-			values: whereflt.values
-		};
-		const result = await this.db.query<{exists : boolean}>(query);
-
-		return (result.rows.length >= 1 && result.rows[0].exists);
-	}
-}
+// export function buildUpdate<O>(tablename : string) : UpdateQueryFunction<O> {
+// 	return async function <R extends Partial<O>>(this : PostgreDAO, where : TableWhere<O> | TableWhere<O>[], data : {[Prop in keyof O]? : O[Prop] | null}, returning? : TableField<O> | '*') : Promise<QueryResult<R>>{
+// 		const dataflt = UpdatetoSQL(data);
+// 		const whereflt = WheretoSQL(where, dataflt.nextvar);
+// 		const query = {
+// 			text : ` UPDATE ${tablename}
+// 						SET ${dataflt.set}
+// 						WHERE ${whereflt.where}
+// 						${returning ? "RETURNING " + toSELECTClause(returning) : ""}`,
+// 			values : [...dataflt.values, ...whereflt.values]
+// 		}
+// 		return await this.db.query(query);
+// 	}
+// }
 
 
-export function buildUpdate<O>(tablename : string) : UpdateQueryFunction<O> {
-	return async function <R extends Partial<O>>(this : PostgreDAO, where : TableWhere<O> | TableWhere<O>[], data : {[Prop in keyof O]? : O[Prop] | null}, returning? : TableField<O> | '*') : Promise<QueryResult<R>>{
-		const dataflt = UpdatetoSQL(data);
-		const whereflt = WheretoSQL(where, dataflt.nextvar);
-		const query = {
-			text : ` UPDATE ${tablename}
-						SET ${dataflt.set}
-						WHERE ${whereflt.where}
-						${returning ? "RETURNING " + toSELECTClause(returning) : ""}`,
-			values : [...dataflt.values, ...whereflt.values]
-		}
-		return await this.db.query(query);
-	}
-}
-
-
-export function buildDelete<O>(tablename : string) : DeleteQueryFunction<O>{
-	return async function <R extends Partial<O>>(this : PostgreDAO, where : TableWhere<O> | TableWhere<O>[], returning? : TableField<O> | '*') : Promise<QueryResult<R>>{
-		const whereflt = WheretoSQL(where);
-		const query = {
-			text: `	DELETE 
-						FROM ${tablename}
-						WHERE ${whereflt.where}
-						${returning ? "RETURNING " + toSELECTClause(returning) : ""}
-					`,
-			values: [...whereflt.values]
-		};
-		return await this.db.query<R>(query);
-	}
-}
+// export function buildDelete<O>(tablename : string) : DeleteQueryFunction<O>{
+// 	return async function <R extends Partial<O>>(this : PostgreDAO, where : TableWhere<O> | TableWhere<O>[], returning? : TableField<O> | '*') : Promise<QueryResult<R>>{
+// 		const whereflt = WheretoSQL(where);
+// 		const query = {
+// 			text: `	DELETE 
+// 						FROM ${tablename}
+// 						WHERE ${whereflt.where}
+// 						${returning ? "RETURNING " + toSELECTClause(returning) : ""}
+// 					`,
+// 			values: [...whereflt.values]
+// 		};
+// 		return await this.db.query<R>(query);
+// 	}
+// }
 /*
 export function buildUpdateDistinct<O extends Obj>(db : PostgreDatabaseClient, tablename : string) :  <I extends Partial<O> = Partial<O>>(identifier: keyof I | (keyof I)[], data: I[]) => Promise<QueryResult>
 export function buildUpdateDistinct<O extends Obj, R extends Partial<O>>(db : PostgreDatabaseClient, tablename : string, returnfields : Stringed<R>) :  <I extends Partial<O> = Partial<O>>(identifier: keyof I | (keyof I)[], data: I[]) => Promise<QueryResult<R>>

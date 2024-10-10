@@ -79,7 +79,7 @@ Will translate in :
 		[k in keyof T as k extends string ? `${P}${k}` : never]? : Arrayed<T[k] | null> |  TableWhere<T>[];//| amputedWhere<Where<T>, k> | amputedWhere<Where<T>, k>[];
 	}
 
-	type tsqueryWhere = {
+	export type tsqueryWhere = {
 		value : string,
 		weights? : number[],
 		flag? : number,
@@ -180,5 +180,4 @@ type ENV = {
 	}
 };
 
-let test : TablePreparedWhere<ENV["table1"]> = ['!=:a1', "=:a1", '[=]:c1'];
-let test2 : ValuesFromEnvironmentPreparedWhere<ENV, ['!=:table1.a1', "=:table2.b2", ['!:table1.b1', '[=]:table1.c1']]> = [];
+
