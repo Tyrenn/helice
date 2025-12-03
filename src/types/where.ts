@@ -23,37 +23,35 @@ WHERE<Tables>
 		"&&:anyname" : WHERE<Tables>
 	}
 
-{
+EnvironmentWhere<Env>{
 	prop : [] | typeof prop
 	"operator:prop" : [] | typeof
-	prop : {
-		_ : [] | '',
-		otherthanprop :  [] | typeof
-	}
+	"&&:any" : EnvironmentWhere<Env>
 }
 
 {
 	a : "a",
-	b : [{
-			_ : "b2",
+	"&&:any" : [{
+			b : "b2",
 			a : "a2",
 		},
 		{
-			_ : "b1",
+			b : "b1",
 			a : "a1"
 		},
 		{
-			_ : "b3",
-			c : [{
-				_ : "c1",
-				d : "d1"
-			},
-			{
-				_ : "c2",
-				d : "d2"
-			}
+			b : "b3",
+			"&&:any" : [{
+					c : "c1",
+					d : "d1"
+				},
+				{
+					c : "c2",
+					d : "d2"
+				}
 			]
 		}
+	]
 }
 
 Will translate in :
@@ -179,5 +177,3 @@ type ENV = {
 		a4 : number;
 	}
 };
-
-

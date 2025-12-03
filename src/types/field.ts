@@ -50,9 +50,9 @@ import { Environment, Table, FlattenEnvironment,  } from "./common";
 			| TableFieldObject<T>
 
 		// For environment, treat its flatten version as a table
-		export type EnvironmentField<TE extends Partial<Environment>> = 
+		export type EnvironmentField<TE extends Partial<Environment>, From extends keyof TE | undefined = undefined> = 
 			`${keyof TE extends string ? keyof TE : never}.*`
-			| TableField<FlattenEnvironment<TE>>
+			| TableField<FlattenEnvironment<TE, From>>
 
 
 	///
@@ -92,14 +92,9 @@ import { Environment, Table, FlattenEnvironment,  } from "./common";
 		| TableFromFieldArray<T, TF>
 		| TableFromFieldObject<T, TF>
 
-	export type TableFromEnvField<TE extends Partial<Environment>, TF extends EnvironmentField<TE>> = 
+	export type TableFromEnvField<TE extends Partial<Environment>, TF extends EnvironmentField<TE>, From extends keyof TE | undefined = undefined> = 
 		(TF extends `${infer k}.*` ? (k extends keyof TE ? TE[k] : never) : never)
-		| TableFromTableField<FlattenEnvironment<TE>, TF>
-
-
-
-
-
+		| TableFromTableField<FlattenEnvironment<TE, From>, TF>;
 
 
 ///
@@ -126,24 +121,24 @@ let envfield : EnvironmentField<ENV> = {
 	"ajeeh" : ["table1.a1@aajjaja", 'table4.a4']
 };
 
-let tablefield : TableField<ENV["table1"]> = {
-	'a1' : "column1",
-	'b1' : "column2",
-	'aaa' : ["a1@aajjaja", 'c1'],
-	'bbbb' : {
-		a1 : '444'
-	}
-}
 
-let tablefromfield : TableFromTableField<ENV["table1"], '*'>;
+
+let tablefield : TableField<ENV["table1"]> = ["a1"]
+//{
+// 	'a1' : "column1",
+// 	'b1' : "column2",
+// 	'aaa' : ["a1@aajjaja", 'c1'],
+// 	'bbbb' : {
+// 		a1 : '444'
+// 	}
+// }
+
+//let tablefromfield : TableFromTableField<ENV["table1"], '*'>;
+
+
 
 let envfromfield : TableFromEnvField<ENV, {
 	"table1.a1" : "aaa",
+	"a1" : "eeeeefzfz"
 	"ajeeh" : ["table1.a1@aajjaja", 'table4.a4']
-}> = {
-	aaa : "aaazvav",
-	ajeeh : {
-		"table4.a4" : 4,
-		aajjaja : ""
-	}
-}
+}, "table1">;

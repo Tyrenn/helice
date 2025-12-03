@@ -1,118 +1,6 @@
 //import { Arrayed, TableWhere, Obj, QueryResult, TableField, OrderBy, PostgreDAO, Insert, SelectQueryFunction, InsertQueryFunction, ExistsQueryFunction, UpdateQueryFunction, DeleteQueryFunction, tsqueryWhere } from './types/index.js';
 
-import {Obj, tsqueryWhere} from './types';
-
-/* Simple query build functions */
-
-// export function buildSelect<O>(tablename : string) : SelectQueryFunction<O> {
-// 	return async function<R extends Partial<O>>(this : PostgreDAO, where: TableWhere<O> | TableWhere<O>[], select?: TableField<O> | '*', limit?: number, offset?: number, orderby?: OrderBy<O>): Promise<QueryResult<R>> {
-// 		const whereflt = WheretoSQL(where);
-// 		const query =
-// 			{
-// 				text: `	SELECT ${select ? toSELECTClause(select) : '*'}
-// 							FROM ${tablename}
-// 							WHERE ${whereflt.where}
-// 							${orderby ? 'ORDER BY ' + toORDERBYClauses(orderby) : ""}
-// 							${limit ? "LIMIT " + limit : ""} ${offset ? "OFFSET " + offset : ""}`,
-// 				values : whereflt.values
-// 			}
-
-// 		return await this.db.query<R>(query);
-// 	}
-// }
-
-
-// export function buildInsert<O>(tablename : string) : InsertQueryFunction<O>{
-// 	return async function <R extends Partial<O>>(this : PostgreDAO, data: Insert<O>, returning?: TableField<O> | '*') : Promise<QueryResult<R>> {
-// 		const dataflt = toINSERTClauses(data);
-// 		const query = 
-// 			{
-// 				text : `	INSERT INTO
-// 							${tablename}(${dataflt.properties})
-// 							VALUES ${dataflt.variables}
-// 							${returning ? "RETURNING " + toSELECTClause(returning) : ""}
-// 						`,
-// 				values : dataflt.values
-// 			}
-// 		return await this.db.query<R>(query);
-// 	}
-// }
-
-// export function buildExists<O>(tablename : string) : ExistsQueryFunction<O>{
-// 	return async function(this : PostgreDAO, where: TableWhere<O> | TableWhere<O>[], nb? : number) : Promise<boolean> {
-// 		const whereflt = WheretoSQL(where);
-// 		const query = {
-// 			text: `	SELECT EXISTS(
-// 							SELECT 1
-// 							FROM ${tablename}
-// 							WHERE ${whereflt.where}
-// 							${nb ? 'LIMIT 1 OFFSET (' + (nb-1) + ')' : ''}
-// 						)
-// 						AS exists`,
-// 			values: whereflt.values
-// 		};
-// 		const result = await this.db.query<{exists : boolean}>(query);
-
-// 		return (result.rows.length >= 1 && result.rows[0].exists);
-// 	}
-// }
-
-
-// export function buildUpdate<O>(tablename : string) : UpdateQueryFunction<O> {
-// 	return async function <R extends Partial<O>>(this : PostgreDAO, where : TableWhere<O> | TableWhere<O>[], data : {[Prop in keyof O]? : O[Prop] | null}, returning? : TableField<O> | '*') : Promise<QueryResult<R>>{
-// 		const dataflt = UpdatetoSQL(data);
-// 		const whereflt = WheretoSQL(where, dataflt.nextvar);
-// 		const query = {
-// 			text : ` UPDATE ${tablename}
-// 						SET ${dataflt.set}
-// 						WHERE ${whereflt.where}
-// 						${returning ? "RETURNING " + toSELECTClause(returning) : ""}`,
-// 			values : [...dataflt.values, ...whereflt.values]
-// 		}
-// 		return await this.db.query(query);
-// 	}
-// }
-
-
-// export function buildDelete<O>(tablename : string) : DeleteQueryFunction<O>{
-// 	return async function <R extends Partial<O>>(this : PostgreDAO, where : TableWhere<O> | TableWhere<O>[], returning? : TableField<O> | '*') : Promise<QueryResult<R>>{
-// 		const whereflt = WheretoSQL(where);
-// 		const query = {
-// 			text: `	DELETE 
-// 						FROM ${tablename}
-// 						WHERE ${whereflt.where}
-// 						${returning ? "RETURNING " + toSELECTClause(returning) : ""}
-// 					`,
-// 			values: [...whereflt.values]
-// 		};
-// 		return await this.db.query<R>(query);
-// 	}
-// }
-/*
-export function buildUpdateDistinct<O extends Obj>(db : PostgreDatabaseClient, tablename : string) :  <I extends Partial<O> = Partial<O>>(identifier: keyof I | (keyof I)[], data: I[]) => Promise<QueryResult>
-export function buildUpdateDistinct<O extends Obj, R extends Partial<O>>(db : PostgreDatabaseClient, tablename : string, returnfields : Stringed<R>) :  <I extends Partial<O> = Partial<O>>(identifier: keyof I | (keyof I)[], data: I[]) => Promise<QueryResult<R>>
-export function buildUpdateDistinct<O extends Obj, R extends Partial<O>>(db : PostgreDatabaseClient, tablename : string, returnfields? : Stringed<R>) :  <I extends Partial<O> = Partial<O>>(identifier: keyof I | (keyof I)[], data: I[]) => Promise<QueryResult<R>> {
-	
-	return async <I extends Partial<O> = Partial<O>>(identifier: keyof I | (keyof I)[], data: I[]): Promise<QueryResult<R>> => {
-		const dataflt = toUPDATEClauses(data);
-		let whereclause = Array.isArray(identifier) ? identifier.map(elem => 'oldv.' + elem.toString() + ' = v.' + elem.toString()).join(' AND ') : 'oldv.'+ identifier.toString() + ' = v.' + identifier.toString();
-
-		const query =
-			{
-				text: `	UPDATE ${tablename} as oldv
-							SET ${dataflt.set}
-							FROM (VALUES
-								${dataflt.values}
-							) as v(${dataflt.properties})
-							WHERE ${whereclause}
-							${returnfields ? "RETURNING " + toFIELDSClause(returnfields) : ""}`,
-				values: dataflt.values
-			}
-
-		return await db.query<R>(query);
-	}
-}*/
-
+import {Environment, Join, Obj, tsqueryWhere} from './types';
 
 /* CLAUSE helper functions */
 
@@ -122,7 +10,7 @@ export function buildUpdateDistinct<O extends Obj, R extends Partial<O>>(db : Po
 	Array of objects example
 
 		let objs = [
-			{nb : 12, ar : ['b', 'a'], str : 'hello'}, 
+			{nb : 12, ar : ['b', 'a'], str : 'hello'},
 			{nb : 14, ar : ['c', 'd'], str : 'bye'}
 		];
 
@@ -144,59 +32,55 @@ export function buildUpdateDistinct<O extends Obj, R extends Partial<O>>(db : Po
 			nextdollar: 3
 		}
  */
-export function toINSERTClauses(data : Obj | Obj[], startvar : number = 1) : {properties : string, variables : string, values : Array<any>, nextvar : number}{
-	let value : any[] = [];
+export function toINSERTClauses(data : Obj | Obj[], startvar : number = 1, encryptedColumns? : string[]) : {properties : string, variables : string, values : Array<any>, nextvar : number}{
+	const value : any[] = [];
 	let variables = "";
-	let properties = "";	
+	let properties = "";
 	let i = startvar;
 
-	let flattenobj = (obj : any) => {
-		variables += '(';
-		if(typeof obj === 'object'){
-			for(let prop in obj){
-				if(obj[prop] === undefined)
-					continue
-				if(obj[prop] === 'DEFAULT'){
-					variables += 'DEFAULT,';
-					continue
-				}
-				variables += '$'+ i + ',';
-				value.push(obj[prop]);
-				i++;
-			}
-		}
-		else if (!obj){
+	const flattenValues = (obj : any) => {
+		if(!obj || typeof obj !== 'object')
 			return
-		}
-		else{
-			variables += '$' + i + ',';
-			value.push(obj);
-			i++;
+
+		variables += '(';
+		for(const prop in obj){
+			if(typeof obj[prop] === "undefined")
+				continue
+			if(obj[prop] === 'DEFAULT'){
+				variables += 'DEFAULT,';
+				continue
+			}
+			variables += `${encryptedColumns?.includes(prop) ? 'encrypt:' : ''}$${i++},`;
+			value.push(obj[prop]);
 		}
 		variables = variables.slice(0, -1);
 		variables += "),";
 	}
 
-	if(Array.isArray(data)){
-		let nbprops = Object.keys(data[0]).length;
+	const flattenProps = (obj : any) => {
+		if(!obj || typeof obj !== 'object')
+			return
 
-		for(let prop in data[0]){
-			if(data[0][prop] !== undefined)
-				properties += prop + ",";
+		for(const prop in obj){
+			if(typeof obj[prop] !== "undefined")
+				properties += `${prop},`;
 		}
-		for(let obj of data){
-			if(Object.keys(obj).length != nbprops){
+	}
+
+	if(Array.isArray(data)){
+
+		flattenProps(data[0]);
+
+		const nbprops = Object.keys(data[0]).length;
+		for(const obj of data){
+			if(Object.keys(obj).length != nbprops)
 				throw new Error('Unormalized data');
-			}
-			flattenobj(obj);
+			flattenValues(obj);
 		}
 	}
 	else{
-		for(let prop in data){
-			if(data[prop] !== undefined)
-				properties += prop + ",";
-		}
-		flattenobj(data);
+		flattenProps(data);
+		flattenValues(data);
 	}
 
 	variables = variables.slice(0, -1);
@@ -210,9 +94,7 @@ export function toINSERTClauses(data : Obj | Obj[], startvar : number = 1) : {pr
 /**
 	Transform an object to a fields clause string
 
-	EXAMPLES :
-
-	['column1', 'column2'] output : column1, column2
+	EXAMPLE :
 
 	{
 		a : {
@@ -227,16 +109,24 @@ export function toINSERTClauses(data : Obj | Obj[], startvar : number = 1) : {pr
 
 	OUTPUT : a.*, b AS aliasb, c.propc1 AS pc1, c.propc2 AS pc2
  */
-export function toSELECTClause(data : Obj | '*', prefix? : string) : string{
+
+export function toSELECTClause(data : Obj | '*', prefix? : string, encryptedColumns? : string[]) : string{
+	if(data === '*' && encryptedColumns)
+		throw new Error("Cannot use global selector with encrypted columns");
+
 	if(data === '*')
 		return '*';
+
 	let fields = "";
-	for(let prop in data){
+	const dottedPrefix = prefix ? prefix + "." : '';
+
+	for(const prop in data){
 		if(typeof data[prop] === 'object'){
 			fields += toSELECTClause(data[prop], prop) + ', ';
 		}
 		else {
-			fields += `${prefix ? prefix + "." + prop : prop}${data[prop] !== "" ? " AS " + data[prop] : ""}, `;
+			const name = data[prop] !== "" ? data[prop] : undefined;
+			fields += `${dottedPrefix}${encryptedColumns?.includes(prop) ? 'decrypt:' : ''}${prop}${(!!name || encryptedColumns?.includes(prop)) ? ` AS ${name ?? prop}` : ""}, `;
 		}
 	}
 	fields = fields.slice(0,-2);
@@ -248,100 +138,44 @@ export function toSELECTClause(data : Obj | '*', prefix? : string) : string{
 
 /**
  * Flatten an array of objects or an object as UPDATE useful clauses
-	v is the name of the mapped table
-	
-	Array of objects example
-
-		let objs = [
-			{nb : 12, ar : ['b', 'a'], str : 'hello'}, 
-			{nb : 14, ar : ['c', 'd'], str : 'bye'}
-		];
-		{
-			set: 'nb = v.nb,ar = v.ar,str = v.str,',
-			properties: 'nb,ar,str',
-			variables: '($1,$2,$3),($4,$5,$6)',
-			values: [ 12, [ 'b', 'a' ], 'hello', 14, [ 'c', 'd' ], 'bye' ],
-			nextvar: 6
-		}
-
-	Object example
-
 		let obj = {nb : 12, ar : ['b', 'a'], str : 'hello'};
 		{
 			set: 'nb = $1,ar = $2,str = $3,',
-			properties: '',
-			variables: '',
 			values: [ 12, [ 'b', 'a' ], 'hello' ],
 			nextvar: 3
 		}
  */
-export function UpdatetoSQL(data : Obj | Obj[], startvar : number = 1) : {set : string, properties: string, variables : string, values : Array<any>, nextvar : number}{
-	let values : Array<any> = [];
-	let variables : string = "";
+export function toUPDATEClauses(data : Obj, startvar : number = 1, encryptedColumns? : string[]) : {set : string, values : Array<any>, nextvar : number}{
+	const values : Array<any> = [];
 	let set : string = "";
-	let properties : string = "";	
 	let i = startvar;
 
-	if(Array.isArray(data)){
-		let nbprops = Object.keys(data[0]).length;
-
-		for(let prop in data[0]){
-			properties += prop + ",";
-			set += prop + ' = v.' + prop +',';
-		}
-
-		for(let obj of data){
-			if(Object.keys(obj).length != nbprops){
-				throw new Error('Unormalized data');
-			}
-			variables += '(';
-			if(typeof obj === 'object'){
-				for(let prop in obj){
-					variables += '$'+ i + ',';
-					values.push(obj[prop]);
-					i++;
-				}
-			}
-			else{
-				variables += '$' + i + ',';
-				values.push(obj);
-				i++;
-			}
-			variables = variables.slice(0, -1);
-			variables += "),";
-		}
-	}
-	else{
-		for(let prop in data){
-			if(typeof data[prop] !== "undefined"){
-				set += prop + ' = $'+ i + ',';
-				values.push(data[prop]);
-				i++;
-			}
+	for(const prop in data){
+		if(typeof data[prop] !== "undefined"){
+			set += `${prop} = ${encryptedColumns?.includes(prop) ? 'encrypt:' : ''}$${i++},`;
+			values.push(data[prop]);
 		}
 	}
 
 	set = set.slice(0, -1);
-	variables = variables.slice(0, -1);
-	properties = properties.slice(0, -1);
 
-	return {set, properties, variables, values, nextvar : i};
+	return {set, values, nextvar : i};
 }
 
 
 /**
  * Flatten an array of objects or an object as WHERE clause
-	
+
 	Example 1
 
 		let obj = {
-			nb : 0, 
-			nb2 : 12, 
+			nb : 0,
+			nb2 : 12,
 			ar : ['b', 'a'],
 			"[]:ar" : ['b', 'a'],
 			"[=]:br" : ['b'],
-			str : 'hello', 
-			u : undefined, 
+			str : 'hello',
+			u : undefined,
 			n : null,
 			t : [{
 					_ : 25,
@@ -370,99 +204,153 @@ export function UpdatetoSQL(data : Obj | Obj[], startvar : number = 1) : {set : 
 			nextvar: 17
 		}
  */
-export function WheretoSQL(filter : Obj | Obj[], startdollar : number = 1, prefix? : string) : {where : string, from : string, values : Array<any>, nextvar : number}{
-	let values : any[] = [];
+export function whereToSQL(filter : Obj | Obj[], startdollar : number = 1, prefix? : string, encryptedColumns? : string[]) : {where : string, from : string, values : Array<any>, nextvar : number} {
+	let values : any = [];
 	let where = "";
 	let from = "";
 	let i = startdollar;
 
-	let dottedPrefix = prefix ? prefix + '.' : '';
-	let dashedPrefix = prefix ? prefix + '_' : '';
+	const dottedPrefix = prefix ? prefix + '.' : '';
+	const dashedPrefix = prefix ? prefix + '_' : '';
+
+	const pushValue = (val : any) => {
+		values.push(val);
+		return i++;
+	}
 
 	/**
 	 * Transforms [] props
-		[!]:arr : [1, 2] 	=> 	arr = [1,2]
-		[]:arr :	[1, 2] 	=> 	arr <> [1,2]
-		[=]:arr : [1,2]  	=>  	(1 = ANY(arr) OR 2 = ANY(arr))
-		[=]:arr : 1 		=> 	1 = ANY(arr)
-		[<>]:arr : 1 		=> 	1 <> ANY(arr)
-		[>]:arr : [1]		=> 	1 > ANY(arr)
+		[]:arr : [1, 2] 			=> 	arr = [1,2]
+		[!]:arr :	[1, 2] 		=> 	arr <> [1,2] 
+		[=]:arr : [1,2]  			=>  	(1 = ANY(arr) OR 2 = ANY(arr))
+		[=]:arr : 1 				=> 	1 = ANY(arr)
+		[<>]:arr : [1,2] 			=> 	(1 <> ALL(arr) OR 2 <> ALL(arr))
+		[<>]:arr : 1 				=> 	1 <> ALL(arr)
+		[~~*]:arr : "test"		=>		"test" ~~* array_to_string(arr, ' ')
+		[~~]:arr : [1, 2, null]		=>		(i is NULL OR 1 ~~ array_to_string(arr, ' ') OR 2 ~~ array_to_string(arr, ' '))
 	 */
 	const flattenValForArrayProp = (prop : string, sign : string, val : any) => {
-		if(sign === ""){
-			if(val === null){
-				where += `${dottedPrefix}${prop} is NULL`;
-				i--;
-			}
-			else{
-				where += `${dottedPrefix}${prop} = $${i}`;
-				values.push(val)
-			}
+		let decryptedProp;
+		const match = prop.match(/^(.*)\(([^)]*)\)(.*)/);
+		if(match && match.length > 3){
+			decryptedProp = `${match[1]}(${encryptedColumns?.includes(match[2]!) ? 'decrypt:' : ''}${dottedPrefix}${match[2]})${match[3]}`;
 		}
-		else if(sign === "!"){
-			if(val === null){
-				where += `${dottedPrefix}${prop} is not NULL`;
-				i--;
-			}
-			else{
-				where += `${dottedPrefix}${prop} <> $${i}`;
-				values.push(val)
-			}
+		else{
+			decryptedProp = `${encryptedColumns?.includes(prop) ? 'decrypt:' : ''}${dottedPrefix}${prop}`;
 		}
-		else if(!Array.isArray(val)){
-			let currSign = sign;
 
-			where += `$${i} ${currSign} ANY(${dottedPrefix}${prop})`;
-			values.push(val);
+		// []:arr : [1, 2] => arr = [1,2]
+		if(sign === "")
+			where += (val === null ?  `${dottedPrefix}${prop} is NULL` : `${decryptedProp} = $${pushValue(val)}`);
+
+		//[!]:arr :	[1, 2] => arr != [1,2]
+		else if(sign === "!")
+			where += (val === null ? `${dottedPrefix}${prop} is not NULL` : `${decryptedProp} <> $${pushValue(val)}`);
+
+		// [=]:arr : 1 => 1 = ANY(arr)
+		// [<>]:arr : 1 => 1 <> ALL(arr)
+		else if(!Array.isArray(val)){
+			if(sign === "~~" || sign === "~~*" || sign === "!~~" || sign === "!~~*")
+				where += `array_to_string(${decryptedProp}, ' ') ${sign} $${pushValue(val)}`;
+			else if (sign === "" || sign === "=")
+				where += `$${pushValue(val)} ${sign} ANY(${decryptedProp})`;
+			else
+				where += `$${pushValue(val)} ${sign} ALL(${decryptedProp})`;
 		}
-		else if(val.length > 1){
+
+		// [=]:arr : [1] => 1 = ANY(arr)
+		// [<>]:arr : [1] => 1 <> ALL(arr)
+		// [~~*]:arr : ["test"] => "test" ~~* array_to_string(arr, ' ')
+		else if(val.length == 1){
+			if(sign === "~~" || sign === "~~*" || sign === "!~~" || sign === "!~~*")
+				where += `array_to_string(${decryptedProp}, ' ') ${sign} $${pushValue(val[0])}`;
+			else if (sign === "" || sign === "=")
+				where += `$${pushValue(val[0])} ${sign} ANY(${decryptedProp})`;
+			else
+				where += `$${pushValue(val[0])} ${sign} ALL(${decryptedProp})`;
+		}
+
+		// [=]:arr : [1,2] => (1 = ANY(arr) OR 2 = ANY(arr))
+		// [<>]:arr : [1,2] => (1 <> ALL(arr) AND 2 <> ALL(arr))
+		// [~~]:arr : [1,2, null] => (i is NULL OR 1 ~~ array_to_string(arr, ' ') OR 2 ~~ array_to_string(arr, ' '))
+		else if(val.length > 0){
 			where += '( '
-			for(let v of val){
-				let currSign = sign;
-				where += `$${i} ${currSign} ANY(${dottedPrefix}${prop}) OR `;
-				values.push(v);
-				i++;
+			if(val.includes(null)){
+				val = val.filter(n => n !== null);
+				where += `${dottedPrefix}${prop} ${sign === "" || sign === '=' ? 'is NULL OR ' : "is not NULL AND "}`;
 			}
-			where = where.slice(0, -4);
+			for(const v of val){
+				if(sign === "~~" || sign === "~~*" || sign === "!~~" || sign === "!~~*")
+					where += `array_to_string(${decryptedProp}, ' ') ${sign} $${pushValue(v)} OR `;
+				else if(sign === "" || sign === "=")
+					where += `$${pushValue(v)} ${sign} ANY(${decryptedProp}) OR `;
+				else
+					where += `$${pushValue(v)} ${sign} ALL(${decryptedProp}) AND `;
+			}
+			where = where.slice(0, -4);	// Removing ' OR '
 			where += ' )';
-			i--;
-		}
-		else {
-			flattenValForProp(prop, sign, val[0])
 		}
 	}
 
 	/**
 	 * Transforms sign:prop and prop
-	 * =:i : 1 			=> 		i = 1
-	 * <>:i : null 	=> 		i is not NULL
-	 * i : 2				=> 		i = 2
-	 * arr : [1,2]		=> 		arr = ANY([1,2])
+		=:i : 1 				=> 		i = 1
+		<>:i : null 		=> 		i is not NULL
+		i : 2					=> 		i = 2
+		<:i : 2				=> 		i = 2
+		i : [1,2]			=> 		i = ANY([1,2])
+		i : [1, null]		=>			(i is NULL OR i = ANY([1]))
+		<>:i : [1, null]	=>			(i is not NULL AND i <> ALL([1]))
+		~~*:i : "test"		=>			i ~~* "test"
+		~~:i : [1, null]	=>			(i is NULL OR i ~~ array_to_string([1], ' '))
+		~*:i : "test"		=>			i ~* "test"
+		~:i : [1, null]	=>			(i is NULL OR i ~ array_to_string([1], ' '))
 	 */
 	const flattenValForProp = (prop : string, sign : string, val : any) => {
+		let decryptedProp;
+		const match = prop.match(/^(.*)\(([^)]*)\)(.*)/);
+		if(match && match.length > 3){
+			decryptedProp = `${match[1]}(${encryptedColumns?.includes(match[2]!) ? 'decrypt:' : ''}${dottedPrefix}${match[2]})${match[3]}`;
+		}
+		else{
+			decryptedProp = `${encryptedColumns?.includes(prop) ? 'decrypt:' : ''}${dottedPrefix}${prop}`;
+		}
+
 		if(val === null){
 			if(sign === '' || sign === '=')
 				sign = 'is';
 			if(sign === '!=' || sign === '<>')
 				sign = 'is not';
 			where += `${dottedPrefix}${prop} ${sign} NULL`;
-			i--;
 		}
 		else if(Array.isArray(val) && val.length > 1){
-			where += `${dottedPrefix}${prop} ${sign} ANY($${i})`;
-			values.push(val);
+			if(val.includes(null)){
+				val = val.filter(n => n !== null);
+				where += `(${dottedPrefix}${prop} ${sign === '' || sign === "=" ? 'is NULL OR' : 'is not NULL AND' } `
+				if(sign === "" || sign === "=")
+					where += `${decryptedProp} ${sign} ANY($${pushValue(val)})`;
+				else if(sign === '~~' || sign === '~~*' || sign === '!~~' || sign === '!~~*')
+					where += `array_to_string($${pushValue(val)}, ' ') ${sign} ${decryptedProp}`;
+				else
+					where += `${decryptedProp} ${sign} ALL($${pushValue(val)})`;
+				where += ')'
+			}
+
+			else if(sign === "" || sign === "=")
+				where += `${decryptedProp} ${sign} ANY($${pushValue(val)})`;
+			else if(sign === '~~' || sign === '~~*' || sign === '!~~' || sign === '!~~*' || sign === '~' || sign === '~*')
+				where += `array_to_string($${pushValue(val)}, ' ') ${sign} ${decryptedProp}`;
+			else	// Should be '<>'
+				where += `${decryptedProp} ${sign} ALL($${pushValue(val)})`;
 		}
 		else if(Array.isArray(val) && val.length > 0){
-			where += `${dottedPrefix}${prop} ${sign} $${i}`;
-			values.push(val[0]);
+			where += `${decryptedProp} ${sign} $${pushValue(val[0])}`;
 		}
 		else if(Array.isArray(val) && val.length == 0){
-			where += `${dottedPrefix}${prop} is NULL`;
-			i--;
+			where += `${dottedPrefix}${prop} ${sign === '' || sign === "=" ? 'is NULL' : 'is not NULL' }`;
 		}
 		else{
-			where += `${dottedPrefix}${prop} ${sign} $${i}`;
-			values.push(val);
+			where += `${decryptedProp} ${sign} $${pushValue(val)}`;
 		}
 	}
 
@@ -470,83 +358,137 @@ export function WheretoSQL(filter : Obj | Obj[], startdollar : number = 1, prefi
 	 * Transforms @@:prop
 	 * tsqueryWhere =>
 	 * 	from : to_tsquery(language, value) as prefix_prop_query, ts_rank_cd(weights, prefix.prop, prefix_prop_query, flag) as prefix_prop_rank
-	 * @param prop 
-	 * @param obj 
+	 * @param prop
+	 * @param obj
 	 */
 	const flattenAAProp = (prop : string, obj : tsqueryWhere) => {
-		from += `to_tsquery($${i}, $${i = i + 1}) as ${dashedPrefix}${prop}_query,
-			ts_rank_cd($${i = i + 1}, ${dottedPrefix}${prop},  ${dashedPrefix}${prop}_query, ${obj.flag ?? '32'}) AS ${dashedPrefix}${prop}_rank`;
+		from += `to_tsquery($${i++}, $${i++}) as ${dashedPrefix}${prop}_query, ts_rank_cd($${i++}, ${dottedPrefix}${prop},  ${dashedPrefix}${prop}_query, ${obj.flag ?? '32'}) AS ${dashedPrefix}${prop}_rank`;
 		where += `${dashedPrefix}${prop}_query @@ ${prop}`;
 		values.push(obj.language, obj.value, obj.weights ?? [0.1, 0.2, 0.4, 1.0]);
 	}
 
 	const flattenANDProp = (array : Array<Obj>) => {
 		where += ' (';
-		for(let o of array){
-			let flt = WheretoSQL(o, i, prefix);
+		for(const o of array){
+			const flt = whereToSQL(o, i, prefix);
 			where += ` ( ${flt.where} ) OR`;
 			from += flt.from;
 			i = flt.nextvar;
 			values = [...values, ...flt.values];
 		}
-		i--;
 		where = where.slice(0, -2);
 		where += ')';
 	}
 
 	const flatten = (obj : any) => {
-		for(let prop in obj){
+		for(const prop in obj){
 			if(obj[prop] === undefined)
 				continue;
 			let execRes;
 
 			const andRegex = /^&&.*/;
 			const aaRegex = /^@@:(.*)/;
-			const arrRegex = /^\[(|!|=|<>|!=|>|>=|<|<=|~~|~~\*|!~~|!~~\*)\]:(.*)/;
-			const singleRegex = /^(|=|<>|!=|>|>=|<|<=|~~|~~\*|!~~|!~~\*):(.*)/;
+			const arrRegex = /^\[(|!|=|<>|!=|~~|~~\*|!~~|!~~\*)\]:((?:[^()]+$)|.*\(([^)]*)\).*)/;
+			const singleRegex = /^(|=|<>|!=|>|>=|<|<=|~~|~~\*|!~~|!~~\*|~|~\*):((?:[^()]+$)|.*\(([^)]*)\).*)/;
 
 			if(andRegex.exec(prop) !== null && Array.isArray(obj[prop])){
 				flattenANDProp(obj[prop]);
 			}
 			else if((execRes = aaRegex.exec(prop)) !== null){
-				flattenAAProp(execRes[1], obj[prop]);
+				flattenAAProp(execRes[1]!, obj[prop]);
 			}
 			else if((execRes = arrRegex.exec(prop)) !== null){
-				flattenValForArrayProp(execRes[2], execRes[1], obj[prop]);
-			}else if((execRes = singleRegex.exec(prop)) !== null){	
-				flattenValForProp(execRes[2], execRes[1] === '' ? '=' : execRes[1], obj[prop]);
+				flattenValForArrayProp(execRes[2]!, execRes[1]!, obj[execRes.length > 2 ? execRes[3] ?? prop : prop]);
+			}else if((execRes = singleRegex.exec(prop)) !== null){
+				flattenValForProp(execRes[2]!, execRes[1] === '' ? '=' : execRes[1]!, obj[execRes.length > 2 ? execRes[3] ?? prop : prop]);
 			}else{
 				flattenValForProp(prop, '=', obj[prop]);
 			}
-			i++;
 			where += ' AND ';
 		}
-		where = where.slice(0,-4);
+		where = where.slice(0,-5);
 	}
 
 	if(Array.isArray(filter)){
-		for(let obj of filter){
+		for(const obj of filter){
 			if(i > startdollar)
 				where += ` OR `;
 			where += `(`;
-			
+
 			flatten(obj);
 
 			where += ') '
 		}
 	}
-	else{	
+	else{
 		flatten(filter);
 	}
 
 	return {where, from, values, nextvar : i};
 }
 
+export function envWhereToWHEREClauses(filter : Obj | Obj[], startdollar : number = 1, encryptedColumns? : string[]) : {where : string, from : string, values : Array<any>, nextvar : number}{
+	let values : any[] = [];
+	let from = "";
+	let i = startdollar;
+
+	const flattenOR = (obj : any) => {
+		let tempWhere = '';
+
+		for(const o of obj){
+			const flattenedWhere = flatten(o);
+
+			if(!!flattenedWhere && flattenedWhere !== "")
+				tempWhere += `(${flattenedWhere}) OR `
+		}
+
+		if(tempWhere !== "")
+			tempWhere = `( ${tempWhere.slice(0,-4)} )`;
+
+		return tempWhere;
+	}
+
+	const flatten = (obj : any) => {
+		let tempWhere = '';
+
+		for(const prop in obj){
+			if(obj[prop] === undefined || Object.keys(obj[prop]).length < 1)
+				continue;
+
+			const andRegex = /^&&.*/;
+
+			if(andRegex.exec(prop) !== null && Array.isArray(obj[prop])){
+				const flattenedWhere = flattenOR(obj[prop]);
+				if(!!flattenedWhere && flattenedWhere !== "")
+					tempWhere += `${flattenedWhere} AND `
+			}
+			else{
+				const whereflt = whereToSQL(obj[prop], i, prop, encryptedColumns);
+
+				if(!!whereflt.where && whereflt.where !== ""){
+					tempWhere += `${whereflt.where} AND `;
+					from += whereflt.from;
+					i = whereflt.nextvar;
+					values = [...values, ...whereflt.values];
+				}
+			}
+		}
+
+		if(tempWhere !== "")
+			tempWhere = tempWhere.slice(0,-4);
+
+		return tempWhere;
+	}
+
+	const flattened = Array.isArray(filter) ? flattenOR(filter) : flatten(filter);
+
+	return {where : flattened, from, values, nextvar : i}
+}
 
 
 export function toORDERBYClauses(data : Obj, prefix? : string) : string{
 	let orderby : string = "";
-	for(let prop in data){
+	for(const prop in data){
 		if(typeof data[prop] === 'object'){
 			orderby += toORDERBYClauses(data[prop], prop) + ', ';
 		}
@@ -561,70 +503,59 @@ export function toORDERBYClauses(data : Obj, prefix? : string) : string{
 }
 
 
-/**
-	Transforms a JOIN object :
-	{
-		table2 : a//table1.b
-		table3 : d/l/table2.c
+export function mergeWHEREClausesAsAND(...where : (string|undefined)[]){
+	let res = '';
+	for(const s of where){
+		if(s && s.replace(/\s/g, '').length > 0)
+			res += s + ' AND '
 	}
+	res = res.slice(0, -5);
 
-	to JOIN Clauses :
-
-	{
-		join : 'INNER JOIN table2 ON table2.a = table1.b   LEFT JOIN table3 ON table3.d = table2.c'
-	}
-
- */
-export function toJOINClause(obj : Obj) : { join : string }{
-	let join = '';
-	
-	for(let prop in obj){
-		let execRes;
-		const regex = /^(.*)\/(|i|l|r|f)\/(.*)\.(.*)/;
-		if((execRes = regex.exec(obj[prop])) !== null){
-			
-			let joint;
-			switch(execRes[2]){
-				case 'i':
-					joint = 'INNER';
-					break;
-				case 'l':
-					joint = 'LEFT';
-					break;
-				case 'r':
-					joint = 'RIGHT';
-					break;
-				case 'f':
-					joint = 'FULL';
-					break;
-				case '':
-					joint = 'INNER';
-					break;
-			}
-
-			join += `${joint} JOIN ${prop} ON ${prop}.${execRes[1]} = ${execRes[4]}.${execRes[3]}`;
-		}
-	}
-
-	return { join };
+	return res && res.replace(/\s/g, '').length > 0 ? `( ${res} )` : '';
 }
 
 
-export function mergeWHEREClauses(...where : (string|undefined)[]){
+export function mergeWHEREClausesAsOR(...where : (string | undefined)[]){
 	let res = '';
-	for(let s of where){
-		if(s)
-			res += s + ' AND '
+	for(const s of where){
+		if(s && s.replace(/\s/g, '').length > 0)
+			res += s + ' OR '
 	}
-	return res.slice(0,-4);
+	res = res.slice(0, -4);
+
+	return res && res.replace(/\s/g, '').length > 0 ? `( ${res} )` : '';
 }
 
 
 export function mergeSELECTClauses(...select : (string|undefined)[]){
 	let res = '';
-	for(let s of select){
-		if(s)
+	for(const s of select){
+		if(s && s.replace(/\s/g, '').length > 0)
 			res += s + ', '
 	}
 	return res.slice(0, -2);
+}
+
+
+
+
+export function joinToSQL<Env extends Environment>(join : Join<Env> | undefined){
+	if(!join)
+		return '';
+
+	let res = '';
+	for(let key in join){
+		const [type, target] = key.includes(':') ? key.split(':') : ['l', key];
+
+		if(type === 'i')
+			res = 'INNER JOIN ';
+		else if(type === 'f')
+			res = 'FULL JOIN ';
+		else if(type === 'r')
+			res = 'RIGHT JOIN ';
+		else
+			res = 'LEFT JOIN ';
+		
+		res += target;
+	}
 }

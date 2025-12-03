@@ -24,15 +24,20 @@ type TestEnv = {
 	table3 : Table3;
 }
 
-let t3 = new Helice<TestEnv>().select('table1').join({"l:table2@test" : "column22/table1.column1"}).field('');
 
-let t1 = new Helice<TestEnv>().select("table2").field("table2.column21@aaa").build({where : true});
-t1({"table2.column22" : "blabla"})
+// Select devrait générer une requete SelectTable
+// SelectTable.join une requete SelectEnv
+
+let t3 = new Helice<TestEnv>().select('table1').join({"i:table2" : "column21/table1.column2"}).field({})
 
 
-new Helice<TestEnv>().select("table2")
+let t1 = new Helice<TestEnv>().select("table2").field("table2.column21@aaa").prepare({where : true});
+t1({});
+
+
+let exec = new Helice<TestEnv>().select("table2")
 	.join({table1 : "column1/table2.column23"})
-	.field({"table2.column21" : "aaa"})
+	.field(["column21", "table1.column1@c11"])
 	.where({
 		"table1.column2" : 4,
 		"&&:test" : [{
@@ -40,4 +45,4 @@ new Helice<TestEnv>().select("table2")
 		},{
 			"<:table1.column2" : 5
 		}]
-	}).build({limit : true})(3);
+	}).prepare({limit : true});

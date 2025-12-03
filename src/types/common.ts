@@ -38,20 +38,41 @@ export type KeysNotOfType<T, FV extends any> = {
 
 
 /**
- * Get keys of FlattenEnvironment
- */
-export type FlattenEnvironmentKeys<TE extends Partial<Environment>> = keyof {
-		[Key in (keyof TE) as Key extends string ? `${Key}.${keyof TE[Key] extends string ? keyof TE[Key] : never}` : never] : string;
+{
+	table1 : {
+		c11 : number;
+		c12 : string;
+	},
+	table2 : {
+		c21 : number;
+		c22 : string;
 	}
+}
+
+Will give "table1.c11" | "table1.c12" | "table2.c21" | "table2.c22"
+
+ */
+// export type FlattenEnvironmentKeys<TE extends Partial<Environment>> = keyof {
+// 	[Key in (keyof TE) as Key extends string ? `${Key}.${keyof TE[Key] extends string ? keyof TE[Key] : never}` : never] : string;
+// }
+
+export type FlattenEnvironmentKeys<TE extends Partial<Environment>, From extends keyof TE | undefined = undefined> = keyof { [Key in (keyof TE) as Key extends string ? `${Key}.${keyof TE[Key] extends string ? keyof TE[Key] : never}` : never] : true;} | ( From extends keyof TE ? keyof TE[From] : never );
 
 /**
 	{
 		"table.prop" : type of prop
 	}
  */
-export type FlattenEnvironment<TE extends Partial<Environment>> = {
-		[Key in FlattenEnvironmentKeys<TE>] : Key extends `${infer T}.${infer C}` ? (T extends keyof TE ? (C extends keyof TE[T] ? TE[T][C] : never) : never): never;
-	}
+// export type FlattenEnvironment<TE extends Partial<Environment>> = {
+// 	[Key in FlattenEnvironmentKeys<TE>] : Key extends `${infer T}.${infer C}` ? (T extends keyof TE ? (C extends keyof TE[T] ? TE[T][C] : never) : never): never;
+// }
+export type FlattenEnvironment<TE extends Partial<Environment>, From extends keyof TE | undefined = undefined> = {
+	[Key in FlattenEnvironmentKeys<TE, From>] : Key extends `${infer T}.${infer C}` ? 
+			(T extends keyof TE ? (C extends keyof TE[T] ? TE[T][C] : never) : never) 
+		:  (From extends keyof TE ? (Key extends keyof TE[From] ? TE[From][Key] : never) : never);
+}
+
+
 
 export type FlattenEnvironmentExceptTable<TE extends  Partial<Environment>, ExceptTable extends string> = {
 		[Key in FlattenEnvironmentKeys<TE> as Key extends `${infer T}.${string}` ? (T extends ExceptTable ? never : Key ) : never] : Key extends `${infer T}.${infer C}` ? (T extends keyof TE ? (C extends keyof TE[T] ? TE[T][C] : never) : never): never;

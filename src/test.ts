@@ -1,7 +1,0 @@
-
-
-/**
-
-@file src/types.ts
-
-*/
