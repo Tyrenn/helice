@@ -1,5 +1,5 @@
 
-import {Arrayed, KeysOfType, KeysNotOfType, Table, Environment, FlattenEnvironment, FlattenArray} from './common';
+import {Arrayed, KeysOfType, KeysNotOfType, Table, Environment, FlatEnv, FlattenArray} from './common';
 
 /****************
 		WHERE
@@ -106,7 +106,7 @@ Will translate in :
 
 	//	export type EnvironmentWhere<T> = { [k in keyof T ]? : TableWhere<T[k]>} & {[k in `&&${string}`]? : EnvironmentWhere<T>[]};
 
-	export type EnvironmentWhere<Env extends Environment> = TableWhere<FlattenEnvironment<Env>>;
+	export type EnvironmentWhere<Env extends Environment> = TableWhere<FlatEnv<Env>>;
 
 
 
@@ -130,7 +130,7 @@ Will translate in :
 		| Array<TablePreparedWhere<T>>
 	>
 
-	export type EnvironmentPreparedWhere<Env extends Environment> = TablePreparedWhere<FlattenEnvironment<Env>>; 
+	export type EnvironmentPreparedWhere<Env extends Environment> = TablePreparedWhere<FlatEnv<Env>>; 
 
 
 
@@ -156,7 +156,7 @@ Will translate in :
 		A;
 
 
-	export type ValuesFromEnvironmentPreparedWhere<Env extends Environment, A extends unknown[]> = ValuesFromTablePreparedWhere<FlattenEnvironment<Env>, A>;
+	export type ValuesFromEnvironmentPreparedWhere<Env extends Environment, A extends unknown[]> = ValuesFromTablePreparedWhere<FlatEnv<Env>, A>;
 	
 
 ///

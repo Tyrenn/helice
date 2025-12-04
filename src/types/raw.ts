@@ -1,10 +1,10 @@
-import { Environment, FlattenedEnvironment, FlattenEnvironmentKeys, FlattenEnvironmentKeysTEST } from "./common";
+import { Environment, FlattenedEnvironment, FlatEnvKeys, FlatEnvKeys } from "./common";
 
 
 // 3. Vérification optimisée
 type IsValidToken<TE extends Environment, S extends string> =
   S extends `${string}.${string}`
-    ? (S extends FlattenEnvironmentKeysTEST<Env, "table1"> ? S : never)
+    ? (S extends FlatEnvKeys<Env, "table1"> ? S : never)
     : S; // si pas de ".", ok
 
 type Env = {
@@ -48,7 +48,7 @@ type SplitTokens<S extends string> =
 // Vérifier que chaque token avec "." est une KnownColumn
 type IsTokenSafe<T, TE extends Environment> =
   T extends `${string}.${string}`
-    ? T extends FlattenEnvironmentKeysTEST<TE> ? true : false
+    ? T extends FlatEnvKeys<TE> ? true : false
     : true;
 
 // Validation finale

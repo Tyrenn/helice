@@ -1,4 +1,4 @@
-import { Environment, Table, FlattenEnvironment, StrKeys,  } from "./common";
+import { Environment, Table, FlatEnv, StrKeys, FlatEnvKeys,  } from "./common";
 
 
 /****************
@@ -52,7 +52,7 @@ import { Environment, Table, FlattenEnvironment, StrKeys,  } from "./common";
 		// For environment, treat its flatten version as a table
 		export type EnvironmentField<TE extends Partial<Environment>, From extends keyof TE | undefined = undefined> = 
 			`${keyof TE extends string ? keyof TE : never}.*`
-			| TableField<FlattenEnvironment<TE, From>>
+			| TableField<FlatEnv<TE, From>>
 
 
 	///
@@ -94,7 +94,7 @@ import { Environment, Table, FlattenEnvironment, StrKeys,  } from "./common";
 
 	export type TableFromEnvField<TE extends Partial<Environment>, TF extends EnvironmentField<TE>, From extends keyof TE | undefined = undefined> = 
 		(TF extends `${infer k}.*` ? (k extends keyof TE ? TE[k] : never) : never)
-		| TableFromTableField<FlattenEnvironment<TE, From>, TF>;
+		| TableFromTableField<FlatEnv<TE, From>, TF>;
 
 
 
@@ -132,7 +132,7 @@ The field as an object is most complete and powerful form :
 {
 	"table1.column1" : true, 			// You can select a column simply this way
 	"table1.column2" : "c12", 			// Or give it an alias
-	"alias1" : {							// Build Json object
+	"{}:alias1" : {							// Build Json object
 		"table1.column1" : true,
 		"table1.column2" : "c12"
 	},
@@ -147,7 +147,7 @@ The field as an object is most complete and powerful form :
 			"table1.column2" : "c112"
 		}
 	},
-	"{}:alias4" : "COALESCE(table1.column1, "")"	// A raw sql statement
+	"sql:alias4" : "COALESCE(table1.column1, "")"	// A raw sql statement
 }
 ```
 
@@ -156,6 +156,104 @@ The raw sql statement must be a string but can be the result of a function ! As 
 */
 
 
+///
+// Field
+///
+
+//
+// ---------- Grammar types ----------
+//
+
+
+	/**
+	* String forms:
+	*  - '*' 
+	*  - 'table.*'
+	*  - 'table.col'  (or 'col' if From provided and you used simple key)
+	*  - 'table.col@alias'
+	*/
+	type FieldStringForm<
+		Env extends Environment,
+		From extends keyof Env | never = never
+	> =
+			'*'
+		| 	`${StrKeys<Env>}.*`
+		| 	FlatEnvKeys<Env, From>
+		| 	`${Extract<FlatEnvKeys<Env, From>, string>}@${string}`;
+
+
+	/** 
+	* Array form :
+		["table.col", "table.*", "table.col@alias"]
+	*/
+	type FieldArrayForm<
+		Env extends Environment,
+		From extends keyof Env | never = never
+	> = 
+		ReadonlyArray<
+				`${StrKeys<Env>}.*` 
+			| 	FlatEnvKeys<Env, From> 
+			| 	`${Extract<FlatEnvKeys<Env, From>, string>}@${string}`
+		>;
+
+
+
+	/** 
+		Object form :
+	{
+		"table1.column1" : true, 			// You can select a column simply this way
+		"table1.column2" : "c12", 			// Or give it an alias
+		"{}:alias1" : {							// Build Json object
+			"table1.column1" : true,
+			"table1.column2" : "c12"
+		},
+		"[]:alias2" : {						// Aggregate a column over one column 
+			group : "table1.column3",
+			value : "table2.column2"
+		},		
+		"[]:alias3" : {						// Aggregate an object over 2 columns
+			groyp : ["table1.column1", "table1.column2"] 
+			value : {
+				"table1.column1" : true,
+				"table1.column2" : "c112"
+			}
+		},
+		"sql:alias4" : "COALESCE(table1.column1, "")"	// A raw sql statement
+	}
+	*/
+
+	type AggregateFieldObjectFormValue<
+		Env extends Environment,
+		From extends keyof Env | never = never
+	> = {
+		group: FlatEnvKeys<Env, From> | ReadonlyArray<FlatEnvKeys<Env, From>>;
+		value: FlatEnvKeys<Env, From> | FieldObjectForm<Env, From>;	  // value can be a single column (flat key) OR a nested FieldObject describing an object
+	};
+
+	type FieldObjectForm<
+		Env extends Environment,
+		From extends keyof Env | never = never
+	> = 
+			{ [K in FlatEnvKeys<Env, From>]? : true | string;}
+		|	{ [K in `[]:${string}`]? : AggregateFieldObjectFormValue<Env, From> }
+		|	{ [K in `{}:${string}`]? : FieldObjectForm<Env, From> }
+		| 	{ [K in `sql:${string}`]? : string}
+
+
+
+
+//
+// ---------- Field----------
+//
+
+
+	export type Field<
+		Env extends Environment,
+		From extends keyof Env | never = never
+	> =
+		FieldStringForm<Env, From>
+		| FieldArrayForm<Env, From>
+		| FieldObjectForm<Env, From>;
 
 
 
@@ -163,7 +261,48 @@ The raw sql statement must be a string but can be the result of a function ! As 
 
 
 
+///
+// Table From Field
+///
 
+//
+// ---------- Grammar types ----------
+//
+
+
+	type TableFromFieldAsString<
+		Env extends Environment,
+		F extends string,
+		From extends keyof Env | never = never
+	> = 
+		F extends '*' ? {[K in FlatEnvKeys<Env>] : FlatEnv<Env>[K]} : 
+			(F extends `${infer EnvKey}.*` ? {[K in keyof Env[EnvKey]] : Env[EnvKey][K]} :
+				(F extends `${string}@${infer alias}` ? { [a in alias as a extends string ? a : never] : (F extends `${infer k}@${string}` ? (k extends FlatEnvKeys<Env, From> ? FlatEnv<Env, From>[k] : never) : never) } : 
+					(F extends FlatEnvKeys<Env, From> ? {[f in F] : FlatEnv<Env, From>[f]} : never)
+				)
+			);
+
+	type Flatten<T extends Record<string, object>> = {
+		[K in keyof T]: T[K]
+	}[keyof T];
+	
+	type TableFromFieldAsArray<
+		Env extends Environment,
+		F extends Array<string>,
+		From extends keyof Env | never = never
+	> =
+		F extends ReadonlyArray<infer C> ? Flatten<{[k in C as k extends string ? k : never] : TableFromFieldAsString<Env, k & string, From>}> : never;
+
+// Faire une union des valeur après...
+
+	// type FieldStringForm<
+	// 	Env extends Environment,
+	// 	From extends keyof Env | never = never
+	// > =
+	// 	'*'
+	// 	| `${StrKeys<Env & Record<string, any>>}.*`
+	// 	| FlatEnvKeys<Env, From>
+	// 	| `${Extract<FlatEnvKeys<Env, From>, string>}@${string}`;
 
 
 ///
@@ -185,10 +324,23 @@ type ENV = {
 	}
 };
 
+let tefzef : Field<ENV, "table1"> = "*";
+
+let fromf : TableFromFieldAsArray<ENV, ["b1@eee", "table1.*", "table1.a1"], "table1"> = {
+
+}
+
+
+
 let envfield : EnvironmentField<ENV> = {
 	"table1.a1" : "aaa",
 	"ajeeh" : ["table1.a1@aajjaja", 'table4.a4']
 };
+
+
+let f : FieldObjectForm<ENV, "table1"> = {
+	"table1.a1" : true,
+}
 
 
 let tablefield : TableField<ENV["table1"]> = ["a1"]
@@ -210,3 +362,9 @@ let envfromfield : TableFromEnvField<ENV, {
 	"a1" : "eeeeefzfz"
 	"ajeeh" : ["table1.a1@aajjaja", 'table4.a4']
 }, "table1">;
+
+
+
+
+
+
