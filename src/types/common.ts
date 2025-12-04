@@ -1,6 +1,6 @@
 /// GLOBAL
 
-export type AllowedColumnTypes = null | number | string | boolean | null[] | number[] | string[] | boolean[]
+export type AllowedColumnTypes = any; //null | number | string | boolean | null[] | number[] | string[] | boolean[]
 
 export type Table = ({[key : string | number | symbol] :  AllowedColumnTypes } | {});
 export type Environment = {[key : string] : Table};
@@ -10,6 +10,13 @@ export type Obj = {[key : string] : any};
 
 
 /// UTILS
+
+
+/**
+ * 
+ */
+export type StrKeys<T> = Extract<keyof T, string>;
+
 
 
 /**
@@ -31,6 +38,7 @@ export type FlattenArray<A extends unknown[]> = A extends [] ? [] : A extends [i
 export type KeysOfType<T, FV extends any> = {
 		[k in keyof T] : T[k] extends FV ? k : never;
 	}[keyof T];
+
 
 export type KeysNotOfType<T, FV extends any> = {
 	[k in keyof T] : T[k] extends FV ? never : k
@@ -56,7 +64,15 @@ Will give "table1.c11" | "table1.c12" | "table2.c21" | "table2.c22"
 // 	[Key in (keyof TE) as Key extends string ? `${Key}.${keyof TE[Key] extends string ? keyof TE[Key] : never}` : never] : string;
 // }
 
-export type FlattenEnvironmentKeys<TE extends Partial<Environment>, From extends keyof TE | undefined = undefined> = keyof { [Key in (keyof TE) as Key extends string ? `${Key}.${keyof TE[Key] extends string ? keyof TE[Key] : never}` : never] : true;} | ( From extends keyof TE ? keyof TE[From] : never );
+//export type FlattenEnvironmentKeys<TE extends Partial<Environment>, From extends keyof TE | undefined = undefined> = keyof { [Key in (keyof TE) as Key extends string ? `${Key}.${keyof TE[Key] extends string ? keyof TE[Key] : never}` : never] : true;} | ( From extends keyof TE ? keyof TE[From] : never );
+export type FlattenEnvironmentKeys<TE extends Partial<Environment>, From extends keyof TE | undefined = undefined> = 
+	keyof { [Key in (keyof TE) as Key extends string ? `${Key}.${keyof TE[Key] extends string ? keyof TE[Key] : never}` : never] : true;} | ( From extends keyof TE ? keyof TE[From] : never );
+
+export type FlattenEnvironmentKeysTEST<
+  Env extends Partial<Environment>,
+  From extends keyof Env | never = never
+> = ( {[T in StrKeys<Env>]: `${T}.${StrKeys<Env[T]>}` }[StrKeys<Env>]) | ( From extends keyof Env ? keyof Env[From] : never ) //( StrKeys<Env[From & keyof Env]> );
+
 
 /**
 	{
@@ -71,6 +87,13 @@ export type FlattenEnvironment<TE extends Partial<Environment>, From extends key
 			(T extends keyof TE ? (C extends keyof TE[T] ? TE[T][C] : never) : never) 
 		:  (From extends keyof TE ? (Key extends keyof TE[From] ? TE[From][Key] : never) : never);
 }
+
+export type FlattenEnvironmentTEST<
+	TE extends Partial<Environment>,
+	From extends keyof TE | never = never
+> = {
+	[K in FlattenEnvironmentKeys<TE, From>]: K extends `${infer T}.${infer C}` ? (TE[T & keyof TE][C & keyof TE[T & keyof TE]]) :	(TE[From & keyof TE][K & keyof TE[From & keyof TE]])
+};
 
 
 

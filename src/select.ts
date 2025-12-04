@@ -14,12 +14,9 @@ type QueryParamFromOptions<Options extends SelectQueryQuildOptions, AccessibleEn
 	]
 
 
-
-// Tout serait plus simple si on avait peut se passer du préfix pour la table from (table de base) !
-// Juste erreur par rapport au chainage avec with ?
-
-
-
+// Prepare donne la query avec le res
+// WITH à gérer
+// to String devrait donner la query sans le reste
 
 // HasOptions extends Required<SelectQueryQuildOptions> = {where : false, limit : false, field : false}
 export class SelectQuery<GlobalEnv extends Environment, From extends keyof GlobalEnv, AccessibleEnv extends Pick<GlobalEnv, From> & Environment = Pick<GlobalEnv, From>, TableResult extends Table = {}>{

@@ -1,4 +1,4 @@
-import { Environment, Table, FlattenEnvironment,  } from "./common";
+import { Environment, Table, FlattenEnvironment, StrKeys,  } from "./common";
 
 
 /****************
@@ -40,7 +40,7 @@ import { Environment, Table, FlattenEnvironment,  } from "./common";
 	// FIELD FROM TABLE
 	///
 
-		type TableFieldArray<T extends Table> = Array<keyof T | `${keyof T extends string ? keyof T : never}@${string}`>; 
+		type TableFieldArray<T extends Table> = Array<keyof T | `${StrKeys<T>}@${string}`>;
 		type TableFieldObjectType<T extends Table> = TableFieldObject<T> | TableFieldArray<T>;
 		type TableFieldObject<T extends Table> =  { [k in string as k extends keyof T ? never : k]? : TableFieldObjectType<T> } | { [k in keyof T]? : string}
 		export type TableField<T extends Table> = 
@@ -97,6 +97,75 @@ import { Environment, Table, FlattenEnvironment,  } from "./common";
 		| TableFromTableField<FlattenEnvironment<TE, From>, TF>;
 
 
+
+
+
+
+
+
+///
+// OPTIMIZED
+///
+
+
+/**
+
+Field defines which column are selected or returned, in which form and which alias
+It can have several values :
+```
+'*' // everything 
+
+'table1.*' // everything from a table
+
+'table1.column1' // one column
+
+'table1.column1@c11' // one aliased column
+
+['table1.column1@c11', 'table2.column2'] // multiple columns aliased or not
+
+{...} // An object 
+```
+
+The field as an object is most complete and powerful form : 
+
+```
+{
+	"table1.column1" : true, 			// You can select a column simply this way
+	"table1.column2" : "c12", 			// Or give it an alias
+	"alias1" : {							// Build Json object
+		"table1.column1" : true,
+		"table1.column2" : "c12"
+	},
+	"[]:alias2" : {						// Aggregate a column over one column 
+		group : "table1.column3",
+		value : "table2.column2"
+	},		
+	"[]:alias3" : {						// Aggregate an object over 2 columns
+		groyp : ["table1.column1", "table1.column2"] 
+		value : {
+			"table1.column1" : true,
+			"table1.column2" : "c112"
+		}
+	},
+	"{}:alias4" : "COALESCE(table1.column1, "")"	// A raw sql statement
+}
+```
+
+The raw sql statement must be a string but can be the result of a function ! As such you can use makeSafeSQL<Environment>() utility to get a function that will prevent you to use unknown column in your SQL statement
+
+*/
+
+
+
+
+
+
+
+
+
+
+
+
 ///
 // TESTS
 ///
@@ -120,7 +189,6 @@ let envfield : EnvironmentField<ENV> = {
 	"table1.a1" : "aaa",
 	"ajeeh" : ["table1.a1@aajjaja", 'table4.a4']
 };
-
 
 
 let tablefield : TableField<ENV["table1"]> = ["a1"]
