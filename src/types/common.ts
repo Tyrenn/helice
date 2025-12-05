@@ -1,6 +1,6 @@
 /// GLOBAL
 
-export type AllowedColumnTypes = any; //null | number | string | boolean | null[] | number[] | string[] | boolean[]
+export type AllowedColumnTypes = null | number | string | boolean | object;
 
 export type Table = ({[key : string | number | symbol] :  AllowedColumnTypes } | {});
 export type Environment = {[key : string] : Table};
@@ -18,6 +18,17 @@ export type Obj = {[key : string] : any};
 export type StrKeys<T> = Extract<keyof T, string>;
 
 
+/**
+ * One way to force TS to print the final mapped type
+ */
+export type Simplify<T> = { [K in keyof T]: T[K] } & {};
+
+/**
+ * A stronger way to force TS to print the final mapped type
+ */
+export type Prettify<T> = { [K in keyof T]: T[K] } extends infer O ? { [K in keyof O]: O[K] } : never;
+
+
 
 /**
 * Transform every non-array typed properties in array typed properties
@@ -25,12 +36,13 @@ export type StrKeys<T> = Extract<keyof T, string>;
 export type UnArraying<T> = (T extends (infer U)[] ? U : T);
 export type Arraying<T> = Array<T extends (infer U)[] ? U : T>;
 export type Arrayed<T> = UnArraying<T> | Arraying<T>;
-	//type ObjectArrayed<T> = { [Prop in keyof T] : Arrayed<T[Prop]>;}
+
 
 /**
- * Flatten Array to tuple keeping inferred types
+ * Flattened Array of Arrays to Tuple keeping inferred types
  */
-export type FlattenArray<A extends unknown[]> = A extends [] ? [] : A extends [infer E, ...infer R] ? (E extends `${infer S}` ? [S, ...FlattenArray<R>] : (E extends Array<unknown> ? [...FlattenArray<E>, ...FlattenArray<R>] : never)) : A;
+export type FlatArray<A extends unknown[]> = A extends [] ? [] : A extends [infer E, ...infer R] ? (E extends `${infer S}` ? [S, ...FlatArray<R>] : (E extends Array<unknown> ? [...FlatArray<E>, ...FlatArray<R>] : never)) : A;
+
 
 /**
  * Extract keys of type FV from an object
@@ -71,7 +83,7 @@ Will give "table1.c11" | "table1.c12" | "table2.c21" | "table2.c22"
 export type FlatEnvKeys<
   Env extends Partial<Environment>,
   From extends keyof Env | never = never
-> = ( {[T in StrKeys<Env>]: `${T}.${StrKeys<Env[T]>}` }[StrKeys<Env>]) | ( From extends keyof Env ? keyof Env[From] : never ) //( StrKeys<Env[From & keyof Env]> );
+> = ( {[T in StrKeys<Env>]: `${T}.${StrKeys<Env[T]>}` }[StrKeys<Env>]) | ( From extends keyof Env ? keyof Env[From] : never )
 
 
 /**
@@ -121,7 +133,7 @@ export type FlattenEnvironmentExceptTable<TE extends  Partial<Environment>, Exce
 	https://stackoverflow.com/questions/52855145/typescript-object-type-to-array-type-tuple 
 	https://stackoverflow.com/questions/55127004/how-to-transform-union-type-to-tuple-type/55128956#55128956
 */
-type UnionToIntersection<U> =
+export type UnionToIntersection<U> =
 	(U extends any ? (k: U) => void : never) extends ((k: infer I) => void) ? I : never
 type LastOf<T> =
 	UnionToIntersection<T extends any ? () => T : never> extends () => (infer R) ? R : never

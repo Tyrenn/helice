@@ -1,5 +1,5 @@
 
-import {Arrayed, KeysOfType, KeysNotOfType, Table, Environment, FlatEnv, FlattenArray} from './common';
+import {Arrayed, KeysOfType, KeysNotOfType, Table, Environment, FlatEnv, FlatArray} from './common';
 
 /****************
 		WHERE

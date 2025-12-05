@@ -28,7 +28,7 @@ type TestEnv = {
 // Select devrait générer une requete SelectTable
 // SelectTable.join une requete SelectEnv
 
-let t3 = new Helice<TestEnv>().select('table1').join({"i:table2" : "column21/table1.column2"}).field({})
+let t3 = new Helice<TestEnv>().select('table1').join({"i:table2" : "column21/table1.column2"}).field(["table2.column21", "table1.column1@c11"])
 
 
 let t1 = new Helice<TestEnv>().select("table2").field("table2.column21@aaa").prepare({where : true});
@@ -37,12 +37,24 @@ t1({});
 
 let exec = new Helice<TestEnv>().select("table2")
 	.join({table1 : "column1/table2.column23"})
-	.field(["column21", "table1.column1@c11"])
-	.where({
-		"table1.column2" : 4,
-		"&&:test" : [{
-			"<:table2.column21" : 5
-		},{
-			"<:table1.column2" : 5
-		}]
-	}).prepare({limit : true});
+	.field(["table2.column21", "table1.column1@c11"])
+	.prepare()();
+	// .where({
+	// 	"table1.column2" : 4,
+	// 	"&&:test" : [{
+	// 		"<:table2.column21" : 5
+	// 	},{
+	// 		"<:table1.column2" : 5
+	// 	}]
+	// }).prepare({limit : true})(1);
+
+	// .field({
+	// 	"table1.column1" : true,
+	// 	"table1.column3" : "alias1",
+	// 	"{}:obj" : {
+	// 		"table1.column2" : true,
+	// 		"table2.column22" : true
+	// 	}
+	// })
+
+let t = exec.

@@ -1,4 +1,4 @@
-import {Environment, EnvironmentField, EnvironmentFromJoin, EnvironmentWhere, Join, Table, TableField, TableFromEnvField, TableFromTableField, TableWhere} from './types';
+import {Environment, EnvironmentField, EnvironmentFromJoin, EnvironmentWhere, Field, Join, Table, TableField, TableFromEnvField, TableFromField, TableFromTableField, TableWhere} from './types';
 import { mergeWHEREClausesAsAND, whereToSQL } from './utils';
 
 type SelectQueryQuildOptions = {
@@ -8,7 +8,7 @@ type SelectQueryQuildOptions = {
 }
 
 type QueryParamFromOptions<Options extends SelectQueryQuildOptions, AccessibleEnv extends Environment> = [
-	...(Options["field"] extends true ? [EnvironmentField<AccessibleEnv>] : []), 
+	...(Options["field"] extends true ? [Field<AccessibleEnv>] : []), 
 	...(Options["where"] extends true ? [EnvironmentWhere<AccessibleEnv>] : []),
 	...(Options["limit"] extends true ? [number] : []),
 	]
@@ -19,10 +19,10 @@ type QueryParamFromOptions<Options extends SelectQueryQuildOptions, AccessibleEn
 // to String devrait donner la query sans le reste
 
 // HasOptions extends Required<SelectQueryQuildOptions> = {where : false, limit : false, field : false}
-export class SelectQuery<GlobalEnv extends Environment, From extends keyof GlobalEnv, AccessibleEnv extends Pick<GlobalEnv, From> & Environment = Pick<GlobalEnv, From>, TableResult extends Table = {}>{
+export class SelectQuery<GlobalEnv extends Environment, From extends keyof GlobalEnv | never, AccessibleEnv extends Pick<GlobalEnv, From> & Environment = Pick<GlobalEnv, From>, TableResult extends Table = {}>{
 	
 	#from : From;
-	#field : EnvironmentField<AccessibleEnv> = '*';
+	#field : Field<AccessibleEnv, From> = '*';
 	#where : EnvironmentWhere<AccessibleEnv> | undefined;
 	#join : Join<GlobalEnv> | undefined;
 	#limit : number | undefined;
@@ -37,7 +37,7 @@ export class SelectQuery<GlobalEnv extends Environment, From extends keyof Globa
 			let indexWhere = options?.where ? indexField + 1 : indexField;
 			let indexLimit = options?.limit ? indexWhere + 1 : indexWhere;
 
-			let field : EnvironmentField<AccessibleEnv> | undefined = options?.field ? args[indexField - 1] : undefined;
+			let field : Field<AccessibleEnv> | undefined = options?.field ? args[indexField - 1] as Field<AccessibleEnv> : undefined;
 			let where : EnvironmentWhere<AccessibleEnv> | undefined = options?.where ? args[indexWhere - 1] as EnvironmentWhere<AccessibleEnv> : undefined;
 			let limit : number | undefined = options?.limit ? args[indexLimit - 1] as number : undefined;
 			
@@ -71,14 +71,14 @@ export class SelectQuery<GlobalEnv extends Environment, From extends keyof Globa
 		}
 	}
 	
-	field<F extends EnvironmentField<AccessibleEnv, From>>(field : F) : SelectQuery<GlobalEnv, From, AccessibleEnv, TableFromEnvField<AccessibleEnv, F, From>>{
+	field<const F extends Field<AccessibleEnv, From>>(field : F) : SelectQuery<GlobalEnv, From, AccessibleEnv, TableFromField<AccessibleEnv, F, From>>{
 		this.#field = field;
-		return (this as unknown) as SelectQuery<GlobalEnv, From, AccessibleEnv, TableFromEnvField<AccessibleEnv, F, From>>;
+		return (this as unknown) as SelectQuery<GlobalEnv, From, AccessibleEnv, TableFromField<AccessibleEnv, F, From>>;
 	}
 
-	join<J extends Join<GlobalEnv>>(join : J) : SelectQuery<GlobalEnv, From, EnvironmentFromJoin<GlobalEnv, AccessibleEnv, J>, TableResult>{
+	join<J extends Join<GlobalEnv>>(join : J) : SelectQuery<GlobalEnv, never, EnvironmentFromJoin<GlobalEnv, AccessibleEnv, J>, TableResult>{
 		this.#join = {...(this.#join ?? {}), ...join};
-		return this as SelectQuery<GlobalEnv, From, EnvironmentFromJoin<GlobalEnv, AccessibleEnv, J>, TableResult>;
+		return (this as unknown ) as SelectQuery<GlobalEnv, never, EnvironmentFromJoin<GlobalEnv, AccessibleEnv, J>, TableResult>;
 	}
 
 	where<W extends EnvironmentWhere<AccessibleEnv>>(where : W) : SelectQuery<GlobalEnv, From, AccessibleEnv, TableResult>{
