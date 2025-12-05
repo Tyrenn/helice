@@ -1,8 +1,9 @@
 import { Environment, FlatEnv, StrKeys, FlatEnvKeys, Simplify,  } from "./common";
 
 
-/****************
-		FIELD
+/**=========================================================================
+   =  Documentation
+   =========================================================================
 
 Field defines which column are selected or returned, in which form and which alias
 It can have several values :
@@ -49,17 +50,19 @@ The raw sql statement must be a string but can be the result of a function ! As 
 
 *****************/
 
-//
-// ---------- Grammar types ----------
-//
+
+/* =========================================================================
+   =  Grammar
+   ========================================================================= */
 
 
 	/**
-	* String forms:
-	*  - '*' 
-	*  - 'table.*'
-	*  - 'table.col'  (or 'col' if From provided and you used simple key)
-	*  - 'table.col@alias'
+		------------------ STRING FORM ----------------------
+	
+	  - '*' 
+	  - 'table.*'
+	  - 'table.col'  (or 'col' if From provided and you used simple key)
+	  - 'table.col@alias'
 	*/
 	type PointToUnderscore<k> = k extends `${infer table}.${infer column}` ? `${table}_${column}` : k
 
@@ -90,7 +93,7 @@ The raw sql statement must be a string but can be the result of a function ! As 
 
 
 	/** 
-	* Array form :
+		------------------ ARRAY FORM ----------------------
 		["table.col", "table.*", "table.col@alias"]
 	*/
 
@@ -117,7 +120,7 @@ The raw sql statement must be a string but can be the result of a function ! As 
 
 
 	/** 
-		Object form :
+		------------------ Object FORM ----------------------
 	{
 		"table1.column1" : true, 			// You can select a column simply this way
 		"table1.column2" : "c12", 			// Or give it an alias
@@ -170,9 +173,10 @@ The raw sql statement must be a string but can be the result of a function ! As 
 
 
 
-//
-// ---------- Final types ----------
-//
+
+/* =========================================================================
+   =  FINAL TYPES
+   ========================================================================= */
 
 
 	export type Field<

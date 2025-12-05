@@ -1,6 +1,6 @@
 //import { Arrayed, TableWhere, Obj, QueryResult, TableField, OrderBy, PostgreDAO, Insert, SelectQueryFunction, InsertQueryFunction, ExistsQueryFunction, UpdateQueryFunction, DeleteQueryFunction, tsqueryWhere } from './types/index.js';
 
-import {Environment, Join, Obj, tsqueryWhere} from './types';
+import {Environment, Join, Obj, TSQuery} from './types';
 
 /* CLAUSE helper functions */
 
@@ -203,7 +203,7 @@ export function toUPDATEClauses(data : Obj, startvar : number = 1, encryptedColu
 			values: [0, 12, [ 'b', 'a' ], [ 'b', 'a' ], 'b', 'hello', null, 25, 10, 'aurevoir', 24, 9, 'byebye', [ 0.1, 0.2, 0.4, 0.1 ], 'unaccent_french',	'bonjour la recherche'],
 			nextvar: 17
 		}
- */
+*/
 export function whereToSQL(filter : Obj | Obj[], startdollar : number = 1, prefix? : string, encryptedColumns? : string[]) : {where : string, from : string, values : Array<any>, nextvar : number} {
 	let values : any = [];
 	let where = "";
@@ -221,7 +221,7 @@ export function whereToSQL(filter : Obj | Obj[], startdollar : number = 1, prefi
 	/**
 	 * Transforms [] props
 		[]:arr : [1, 2] 			=> 	arr = [1,2]
-		[!]:arr :	[1, 2] 		=> 	arr <> [1,2] 
+		[!]:arr :	[1, 2] 		=> 	arr <> [1,2]
 		[=]:arr : [1,2]  			=>  	(1 = ANY(arr) OR 2 = ANY(arr))
 		[=]:arr : 1 				=> 	1 = ANY(arr)
 		[<>]:arr : [1,2] 			=> 	(1 <> ALL(arr) OR 2 <> ALL(arr))
@@ -361,7 +361,7 @@ export function whereToSQL(filter : Obj | Obj[], startdollar : number = 1, prefi
 	 * @param prop
 	 * @param obj
 	 */
-	const flattenAAProp = (prop : string, obj : tsqueryWhere) => {
+	const flattenAAProp = (prop : string, obj : TSQuery) => {
 		from += `to_tsquery($${i++}, $${i++}) as ${dashedPrefix}${prop}_query, ts_rank_cd($${i++}, ${dottedPrefix}${prop},  ${dashedPrefix}${prop}_query, ${obj.flag ?? '32'}) AS ${dashedPrefix}${prop}_rank`;
 		where += `${dashedPrefix}${prop}_query @@ ${prop}`;
 		values.push(obj.language, obj.value, obj.weights ?? [0.1, 0.2, 0.4, 1.0]);
@@ -463,7 +463,7 @@ export function envWhereToWHEREClauses(filter : Obj | Obj[], startdollar : numbe
 					tempWhere += `${flattenedWhere} AND `
 			}
 			else{
-				const whereflt = whereToSQL(obj[prop], i, prop, encryptedColumns);
+				const whereflt = toWHEREClauses(obj[prop], i, prop, encryptedColumns);
 
 				if(!!whereflt.where && whereflt.where !== ""){
 					tempWhere += `${whereflt.where} AND `;

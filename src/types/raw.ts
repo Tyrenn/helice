@@ -1,4 +1,4 @@
-import { Environment, FlattenedEnvironment, FlatEnvKeys, FlatEnvKeys } from "./common";
+import { Environment, FlatEnvironment, FlatEnvKeys, FlatEnvKeys } from "./common";
 
 
 // 3. Vérification optimisée

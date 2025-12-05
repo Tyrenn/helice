@@ -1,11 +1,11 @@
-import {Environment, FlattenEnvironmentExceptTable, FlattenedEnvironment} from "./common";
+import {Environment, FlatEnvButTable, FlatEnvironment} from "./common";
 
 /****************
 		JOIN
 *****************/
 
 /**
-	Environment : {
+	Env : {
 		table1 : {
 			a1 : string;
 			b1 : number;
@@ -17,27 +17,42 @@ import {Environment, FlattenEnvironmentExceptTable, FlattenedEnvironment} from "
 		}
 	}
 
-	Join<Environment>
+	AEnv : {
+		table1 : {
+			a1 : string;
+			b1 : number;
+			c1 : number[];
+		}
+	}
+
+	Join<Env, AEnv>
 	{
-		"f:table1" : "a1/table2.a2",
-		"i:table2" : "b2/table1.b1"
+		"table2" : "b2#table1.b1",					// Default join is left join
+		"i:table2" : "b2#table1.b1",				// Can do inner (i), left (l), right (r) and full (f) joins
+		"l:table2@alias" : "b2#table1.b1"		// Can alias the joined table
+		"table1@alias2" : "a1#table1.a1"			// MUST alias already available table otherwise name clash
+		"table2@alias3" : {							// More complex joins are possible with join over multiple columns, similar to WHERE but without '&&' api and with the possibility to referenc tables
+			"b2" : "table1.b1",							// Equality join
+			"<:b2" : "table1.b1",						// Comparison to another column
+			"<:b2" : 4										// Comparison to values
+		}
 	}
  */
 
 	//	JoinCandidateColumns<Env, number> gives : table1.b1 | table2.b2
-	type JoinCandidateColumns<FTM extends FlattenedEnvironment, ColumnType extends string | number> = keyof {
+	type JoinCandidateColumns<FTM extends FlatEnvironment, ColumnType extends string | number> = keyof {
 		[k in keyof FTM as FTM[k] extends ColumnType ? k : never] : any;
 	}
 
 	// 
 	type MultipleColumnsJoints<TE extends Environment, Table extends keyof TE & string> = {
-		[Key in keyof TE[Table]]? : (TE[Table][Key] extends string | number ? JoinCandidateColumns<FlattenEnvironmentExceptTable<TE, Table>, TE[Table][Key]> : never)
+		[Key in keyof TE[Table]]? : (TE[Table][Key] extends string | number ? JoinCandidateColumns<FlatEnvButTable<TE, Table>, TE[Table][Key]> : never)
 	}
 
 	type OneColumnJoints<TE extends Environment, Table extends keyof TE & string> = keyof {
 		[Key in keyof TE[Table] as Key extends string ? 
 			(TE[Table][Key] extends string | number ? 
-				`${Key}/${JoinCandidateColumns<FlattenEnvironmentExceptTable<TE, Table>, TE[Table][Key]> extends string ? JoinCandidateColumns<FlattenEnvironmentExceptTable<TE, Table>, TE[Table][Key]> : never}`
+				`${Key}/${JoinCandidateColumns<FlatEnvButTable<TE, Table>, TE[Table][Key]> extends string ? JoinCandidateColumns<FlatEnvButTable<TE, Table>, TE[Table][Key]> : never}`
 				: never
 			) : never]? : any
 	}

@@ -1,11 +1,8 @@
 
-import {Arrayed, KeysOfType, KeysNotOfType, Table, Environment, FlatEnv, FlatArray} from './common';
+import {Arrayed, KeysOfType, KeysNotOfType, Table, Environment, FlatEnv, FlatArray, UnArraying, StrKeys} from './common';
 
 /****************
 		WHERE
-*****************/
-
-/**
 
 TABLEWHERE : 
 	{
@@ -71,42 +68,78 @@ Will translate in :
 */
 
 
-// TABLE => WHERE
+/* =========================================================================
+   =  Grammar
+   ========================================================================= */
 
-	type prefixPropWhere<T extends Table, P extends string> = {
-		[k in keyof T as k extends string ? `${P}${k}` : never]? : Arrayed<T[k] | null> |  TableWhere<T>[];//| amputedWhere<Where<T>, k> | amputedWhere<Where<T>, k>[];
-	}
 
-	export type tsqueryWhere = {
+	/** --------- Precomputed Key groups ------------- */
+	type ArrayKeys<T> = KeysOfType<T, any[]>;
+	type StringArrayKeys<T> = KeysOfType<T, string[]>;
+	type StringKeys<T> = KeysOfType<T, string>;
+	type NonArrayKeys<T> = KeysNotOfType<T, any[]>;
+
+
+
+	/** --------- Prefix Properties ------------- */
+
+	// type prefixPropWhereWithArray<T extends Table, P extends string> = {
+	// 	[k in keyof T as k extends string ? `${P}${k}` : never]? : Arrayed<T[k] | null> |  TableWhere<T>[];
+	// }
+
+	// type prefixPropWhereWithoutArray<T extends Table, P extends string> = {
+	// 	[k in keyof T as k extends string ? `${P}${k}` : never]? : UnArraying<T[k] | null> |  TableWhere<T>[];
+	// }
+
+	// { [prefixcolumn] : Accepte tout}
+	type PrefixedProp<T extends Table, K extends keyof T, P extends string> = {	[k in K & string as `${P}${k}`]? : Arrayed<T[k] | null> |  TableWhere<T>[]; };
+
+	// { [prefixcolumn] : Accepte tout sauf les []}
+	type PrefixedPropNonArray<T extends Table, K extends keyof T, P extends string> = { [k in K & string as `${P}${k}`]? : T[k] | null |  TableWhere<T>[]; };
+
+
+
+	/** --------- TS QUERY Properties ------------- */
+
+	export type TSQuery = {
 		value : string,
 		weights? : number[],
 		flag? : number,
-		language : string
+		language : string;
 	}
 
-	// String props of T
-	type aaPropWhere<T> = {
-		[k in keyof T as k extends string ? `@@:${k}` : never]? : tsqueryWhere;
+	type TSQueryProp<T> = {
+		[K in StringArrayKeys<T> & string as `@@:${K}`]?: TSQuery;
 	}
 
-	// All prop of T
-	type propWhere<T extends Table> = {
-		[k in keyof T]? : Arrayed<T[k] | null> | TableWhere<T>[];//| amputedWhere<Where<T>, k> | amputedWhere<Where<T>, k>[];
+
+
+	/** --------- Base Properties ------------- */
+	type BaseProp<T extends Table> = {
+		[k in keyof T]? : Arrayed<T[k] | null> | TableWhere<T>[];
 	}
 
-	export type TableWhere<T extends Table> = 
-		propWhere<T> 
-		& prefixPropWhere<Pick<T, KeysOfType<Required<T>, Array<any>>>, `[${'' | '!' | '=' | '<>' | '!=' | '>' | '>=' | '<' | '<='}]:`> 
-		& prefixPropWhere<Pick<T, KeysOfType<Required<T>, Array<string>>>, `[${'~~' | '~~*' | '!~~' | '!~~*'}]:`> 
-		& prefixPropWhere<Omit<T, KeysOfType<Required<T>, Array<any>>>, `${'=' | '<>' | '!=' | '>' | '>=' | '<' | '<='}:`> 
-		& prefixPropWhere<Pick<T, KeysOfType<Required<T>, string>>, `${'~~' | '~~*' | '!~~' | '!~~*'}:`> 
-		& aaPropWhere<Pick<T, KeysOfType<Required<T>, Array<string>>>> &
-		{ [k in `&&${string}`]? : TableWhere<T>[]}
+
+	type TableWhere<T extends Table> = 
+		BaseProp<T> 
+		& PrefixedProp<T, ArrayKeys<T>, `[${'' | '=' | '!' | '<>' | '!='}]:`>							// arrays operators [=],[!],[]=… on arrays
+		& PrefixedProp<T, StringArrayKeys<T>, `[${'~~' | '~~*' | '!~~' | '!~~*'}]:`>					// LIKE operators on string[]
+		& PrefixedProp<T, NonArrayKeys<T>, `${'=' | '<>' | '!='}:`>											// =, != on non-array
+		& PrefixedPropNonArray<T, NonArrayKeys<T>, `${'>' | '>=' | '<' | '<='}:`>						// >, >=, <, ≤ on non-array
+		& PrefixedProp<T, StringKeys<T>, `${'~~' | '~~*' | '!~~' | '!~~*' | '~' | '~*'}:`>	// LIKE operators on string
+		& TSQueryProp<T>		 																							// @@:tsquery
+		& { [k in `&&:${string}`]? : TableWhere<T>[]}															// nested AND
 
 
-	//	export type EnvironmentWhere<T> = { [k in keyof T ]? : TableWhere<T[k]>} & {[k in `&&${string}`]? : EnvironmentWhere<T>[]};
 
-	export type EnvironmentWhere<Env extends Environment> = TableWhere<FlatEnv<Env>>;
+/* =========================================================================
+   =  Final Type
+   ========================================================================= */
+	// TODO Should authorise grouped [] to allow OR from the very start
+	// TODO Test
+	// TODO For join just reuse the same but also add OtherColumn as possible values in Prefixed instead of TableWhere and remove TS and nested AND !
+
+	export type Where<Env extends Environment> = TableWhere<FlatEnv<Env>>;
 
 
 
@@ -117,6 +150,10 @@ Will translate in :
 /************************
 		PREPARED WHERE
 **************************/
+
+	// Generate tuple from referenced where value
+	// Might be good to generate an object with keys rather than tuple ?
+	// The idea was to be able to mention Where like keys which then create a tuple type to pass as a prepared function argument I guess.
 
 	type prefixString<S extends any, P extends string> = S extends string ? `${P}${S}` : never;
 

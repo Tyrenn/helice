@@ -4,7 +4,9 @@ export type AllowedColumnTypes = null | number | string | boolean | object;
 
 export type Table = ({[key : string | number | symbol] :  AllowedColumnTypes } | {});
 export type Environment = {[key : string] : Table};
-export type FlattenedEnvironment = {[key : string] : any};
+export type AvailableEnvironment<Env extends Environment, Tables extends keyof Env> = { [T in Tables]: Env[T];};
+
+export type FlatEnvironment = {[key : string] : any};
 
 export type Obj = {[key : string] : any};
 
@@ -58,7 +60,9 @@ export type KeysNotOfType<T, FV extends any> = {
 
 
 /**
-{
+
+
+Env : {
 	table1 : {
 		c11 : number;
 		c12 : string;
@@ -69,49 +73,35 @@ export type KeysNotOfType<T, FV extends any> = {
 	}
 }
 
-Will give "table1.c11" | "table1.c12" | "table2.c21" | "table2.c22"
+FlatEnvKeys<Env> : "table1.c11" | "table1.c12" | "table2.c21" | "table2.c22"
+
+FlatEnv<Env> : {
+	"table1.c11" : number;
+	"table1.c12" : string;
+	"table2.c21" : number;
+	"table2.c22" : string;
+}
 
  */
-// export type FlattenEnvironmentKeys<TE extends Partial<Environment>> = keyof {
-// 	[Key in (keyof TE) as Key extends string ? `${Key}.${keyof TE[Key] extends string ? keyof TE[Key] : never}` : never] : string;
-// }
-
-//export type FlattenEnvironmentKeys<TE extends Partial<Environment>, From extends keyof TE | undefined = undefined> = keyof { [Key in (keyof TE) as Key extends string ? `${Key}.${keyof TE[Key] extends string ? keyof TE[Key] : never}` : never] : true;} | ( From extends keyof TE ? keyof TE[From] : never );
-// export type FlatEnvKeys<TE extends Partial<Environment>, From extends keyof TE | undefined = undefined> = 
-// 	keyof { [Key in (keyof TE) as Key extends string ? `${Key}.${keyof TE[Key] extends string ? keyof TE[Key] : never}` : never] : true;} | ( From extends keyof TE ? keyof TE[From] : never );
-
 export type FlatEnvKeys<
   Env extends Partial<Environment>,
   From extends keyof Env | never = never
 > = ( {[T in StrKeys<Env>]: `${T}.${StrKeys<Env[T]>}` }[StrKeys<Env>]) | ( From extends keyof Env ? keyof Env[From] : never )
 
-
-/**
-	{
-		"table.prop" : type of prop
-	}
- */
-// export type FlattenEnvironment<TE extends Partial<Environment>> = {
-// 	[Key in FlattenEnvironmentKeys<TE>] : Key extends `${infer T}.${infer C}` ? (T extends keyof TE ? (C extends keyof TE[T] ? TE[T][C] : never) : never): never;
-// }
-// export type FlatEnv<TE extends Partial<Environment>, From extends keyof TE | undefined = undefined> = {
-// 	[Key in FlattenEnvironmentKeys<TE, From>] : Key extends `${infer T}.${infer C}` ? 
-// 			(T extends keyof TE ? (C extends keyof TE[T] ? TE[T][C] : never) : never) 
-// 		:  (From extends keyof TE ? (Key extends keyof TE[From] ? TE[From][Key] : never) : never);
-// }
-
 export type FlatEnv<
-	TE extends Partial<Environment>,
-	From extends keyof TE | never = never
+	Env extends Partial<Environment>,
+	From extends keyof Env | never = never
 > = {
-	[K in FlatEnvKeys<TE, From>]: K extends `${infer T}.${infer C}` ? (TE[T & keyof TE][C & keyof TE[T & keyof TE]]) :	(TE[From & keyof TE][K & keyof TE[From & keyof TE]])
+	[K in FlatEnvKeys<Env, From>]: K extends `${infer T}.${infer C}` ? (Env[T & keyof Env][C & keyof Env[T & keyof Env]]) :	(Env[From & keyof Env][K & keyof Env[From & keyof Env]])
 };
 
-
-
-export type FlattenEnvironmentExceptTable<TE extends  Partial<Environment>, ExceptTable extends string> = {
-		[Key in FlatEnvKeys<TE> as Key extends `${infer T}.${string}` ? (T extends ExceptTable ? never : Key ) : never] : Key extends `${infer T}.${infer C}` ? (T extends keyof TE ? (C extends keyof TE[T] ? TE[T][C] : never) : never): never;
-	}
+export type FlatEnvButTable<
+	Env extends  Partial<Environment>,
+	ExceptTable extends string,
+	From extends keyof Env | never = never
+> = {
+	[Key in FlatEnvKeys<Env, From> as Key extends `${infer T}.${string}` ? (T extends ExceptTable ? never : Key ) : never] : (Env[From & keyof Env][Key & keyof Env[From & keyof Env]]);
+}
 
 
 
