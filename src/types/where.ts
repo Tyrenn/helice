@@ -110,7 +110,7 @@ Will translate in :
 
 	type TableWhere<T extends Table> = 
 		BaseProp<T> 
-		& PrefixedProp<T, ArrayKeys<T>, `[${'' | '=' | '!' | '<>' | '!='}]:`>							// arrays operators [=],[!],[]=… on arrays
+		& PrefixedProp<T, ArrayKeys<T>, `[${'' | '=' | '!' | '<>' | '!='}]:`>							// arrays operators [=],[!],[]… on arrays
 		& PrefixedProp<T, StringArrayKeys<T>, `[${'~~' | '~~*' | '!~~' | '!~~*'}]:`>					// LIKE operators on string[]
 		& PrefixedProp<T, NonArrayKeys<T>, `${'=' | '<>' | '!='}:`>											// =, != on non-array
 		& PrefixedPropNonArray<T, NonArrayKeys<T>, `${'>' | '>=' | '<' | '<='}:`>						// >, >=, <, ≤ on non-array

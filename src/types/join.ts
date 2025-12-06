@@ -1,4 +1,4 @@
-import { Environment, FlatEnv, KeysOfType, Simplify, StrKeys, Table} from "./common";
+import { Environment, FlatEnv, KeysOfType, Prettify, Simplify, StrKeys, Table, TablesWithType} from "./common";
 
 /****************
 		JOIN
@@ -66,6 +66,7 @@ import { Environment, FlatEnv, KeysOfType, Simplify, StrKeys, Table} from "./com
 
 
 
+
 	/** --------- Join Object Value ------------- 
 		"table2@alias3" : {							// More complex joins are possible with join over multiple columns, similar to WHERE API
 			"#" : "inner"									// Can do inner, left, right and full joins
@@ -83,9 +84,8 @@ import { Environment, FlatEnv, KeysOfType, Simplify, StrKeys, Table} from "./com
 		TargetTable extends string
 	> = 
 			{ "#"? : "inner" | "left" | "right" | "full"}
-		&	{ [k in StrKeys<Env[TargetTable]> as Env[TargetTable][k] extends (string | number | boolean) ? `${'' | '<:' | '>:' | '<=:' | '>=:' | '<>:' | '!=:'}${k}` : never]? : CandidateColumns<Env, AccessibleTables, TargetTable, k> | (Env[TargetTable][k] extends string ? `'${string}'` : Env[TargetTable][k]) | null}
+		&	{ [k in StrKeys<Env[TargetTable]> as Env[TargetTable][k] extends (string | number | boolean) ? `${'' | '<:' | '>:' | '<=:' | '>=:' | '<>:' | '!=:'}${k}` : never]? : CandidateColumns<Env, AccessibleTables, TargetTable, k> | (Env[TargetTable][k] extends string ? `'${string}'` : Env[TargetTable][k]) | null }
 		&	{ [k in StrKeys<Env[TargetTable]> as Env[TargetTable][k] extends (string) ? `${'~~' | '~~*' | '!~~' | '!~~*' | '~' | '~*'}:${k}` : never]? : CandidateColumns<Env, AccessibleTables, TargetTable, k> | `'${string}'` | null}
-
 
 
 /* =========================================================================
@@ -97,10 +97,10 @@ import { Environment, FlatEnv, KeysOfType, Simplify, StrKeys, Table} from "./com
 		AccEnv extends Environment,
 	> = 
 		{
-			[table in StrKeys<Env> as `${table}${'' | `@${string}`}`]? : JoinStringValue<Env, StrKeys<AccEnv>, table> | JoinObjectValue<Env, StrKeys<AccEnv>, table>
+			[table in Extract<TablesWithType<Env, (string | number | boolean)>, string> as `${table}${'' | `@${string}`}`]? : JoinStringValue<Env, StrKeys<AccEnv>, table> | JoinObjectValue<Env, StrKeys<AccEnv>, table>
 		}
 
-
+	// TODO Seems that it has a strange type...
 	export type EnvironmentFromJoin<
 		Env extends Environment,
 		AccEnv extends Environment,
@@ -111,54 +111,65 @@ import { Environment, FlatEnv, KeysOfType, Simplify, StrKeys, Table} from "./com
 			&	{ [k in StrKeys<J> as k extends `${infer table}` ? (table extends `${string}@${infer alias}` ? alias : table) : never] : k extends `${infer table}${'' | `@${string}`}` ? Env[table & keyof Env] : never}
 		>;
 
-let test : Join<{
-		table1 : {
-			a1 : string;
-			b1 : number;
-			c1 : number[];
-		},
-		table2 : {
-			a2 : string;
-			b2 : number;
-		}
-	}, {
-		table2 : {
-			a2 : string;
-			b2 : number;
-		}
-	}> = {
-		table1 : {
-			a1 : "table2.a2",
-			b1 : 5
-		},
-		"table2@aa" : "ee fzefezf zfzef"
-	};
 
-let rest : EnvironmentFromJoin<
-{
-	table1 : {
-		a1 : string;
-		b1 : number;
-		c1 : number[];
-	},
-	table2 : {
-		a2 : string;
-		b2 : number;
-	}
-}, 
-{
-	table2 : {
-		a2 : string;
-		b2 : number;
-	}
-},
-{
-	"table1@eee" : {
-		a1 : "table2.a2",
-		b1 : 5
-	},
+/* =========================================================================
+   =  Alias checker
+   ========================================================================= */
+
+type ExtractAlias<K extends string> =
+  K extends `${string}@${infer A}` ? A : never;
+
+export type JoinHasDuplicateAliases<Obj extends Record<string,any>> =
+  {
+    [A in ExtractAlias<keyof Obj & string>]:
+      A extends never
+        ? never
+        : ExtractAlias<keyof Obj & string> extends A ? A : never
+  }[ExtractAlias<keyof Obj & string>] extends never
+    ? false
+    : true;
+
+
+
+/* =========================================================================
+   =  TESTs
+   ========================================================================= */
+
+
+type Table1 = {
+	column1 : string;
+	column2 : number;
+	column3 : 'eee';
+	column4 : Array<string>;
 }
->;
+
+type Table2 = {
+	column21 : number;
+	column22 : string;
+	column23 : "bbb";
+}
+
+type Table3 = {
+	column31 : Array<number>;
+	column32 : Array<string>;
+}
+
+type TestEnv = {
+	table1 : Table1;
+	table2 : Table2;
+	table3 : Table3;
+}
+
+const jTest : Join<TestEnv, Pick<TestEnv, "table1">> = {
+	table2 : "column21 # table1.column2",
+	"table2@second" : {
+		column22 : "table1.column3"
+	}
+} as const;
+
+let rest : EnvironmentFromJoin<TestEnv, Pick<TestEnv, "table1">, typeof jTest> = {
+	
+};
 
 
 

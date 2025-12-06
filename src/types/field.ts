@@ -200,24 +200,55 @@ The raw sql statement must be a string but can be the result of a function ! As 
 
 
 
-///
-// TESTS
-///
 
-type ENV = {
-	table1 : {
-		a1 : string;
-		b1 : number;
-		c1 : number[];
-	},
-	table2 : {
-		a2 : string;
-		b2 : number;
-	},
-	table4 : {
-		a4 : number;
-	}
-};
+/* =========================================================================
+   =  Alias checker
+   ========================================================================= */
+
+type ExtractAliasFromArrayForm<K extends string> = ;
+type ExtractAliasFromObjectForm<K extends object> =
+  (keyof K extends `${string}@${infer A}` ? A : never;
+
+export type FieldHasDuplicateAliases<Obj extends Record<string,any>> =
+  {
+    [A in ExtractAlias<keyof Obj & string>]:
+      A extends never
+        ? never
+        : ExtractAlias<keyof Obj & string> extends A ? A : never
+  }[ExtractAlias<keyof Obj & string>] extends never
+    ? false
+    : true;
+
+
+
+
+/* =========================================================================
+   =  TESTS
+   ========================================================================= */
+
+type Table1 = {
+	column1 : string;
+	column2 : number;
+	column3 : 'eee';
+	column4 : Array<string>;
+}
+
+type Table2 = {
+	column21 : number;
+	column22 : string;
+	column23 : "bbb";
+}
+
+type Table3 = {
+	column31 : Array<number>;
+	column32 : Array<string>;
+}
+
+type TestEnv = {
+	table1 : Table1;
+	table2 : Table2;
+	table3 : Table3;
+}
 
 // let fromf : TableFromFieldAsArray<ENV, ["b1@eee", "table1.*", "table1.a1"], "table1"> = {
 

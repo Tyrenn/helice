@@ -1,13 +1,19 @@
+/// DEFINE SYNTAX KEYS ?
+// # i# f# l# r#   =>  join
+// @					 =>  alias
+// :					 =>  operator separator
+// {}				 	 =>  json build object
+// []				 	 =>  agg
+// &&					 =>  AND group
+// @@					 =>  TSQuery
+
+
+
 /// GLOBAL
 
 export type AllowedColumnTypes = null | number | string | boolean | object;
-
-export type Table = ({[key : string | number | symbol] :  AllowedColumnTypes } | {});
 export type Environment = {[key : string] : Table};
-export type AvailableEnvironment<Env extends Environment, Tables extends keyof Env> = { [T in Tables]: Env[T];};
-
-export type FlatEnvironment = {[key : string] : any};
-
+export type Table = ({[key : string | number | symbol] :  AllowedColumnTypes } | {});
 export type Obj = {[key : string] : any};
 
 
@@ -58,6 +64,9 @@ export type KeysOfType<Table, KeyType extends any> = { [k in keyof Table] : Tabl
 export type KeysNotOfType<Table, KeyType extends any> = { [k in keyof Table] : Table[k] extends KeyType ? never : k }[keyof Table]
 
 
+///
+// FLATTENED ENVIRONMENT
+///
 
 /**
 Flattened Environment
@@ -93,22 +102,20 @@ But its presence here drastically reduce complexity as this type is used everywh
 
  */
 export type FlatEnvKeys<
-  Env extends Partial<Environment>,
+  Env extends Environment,
   OnlyOneTable extends keyof Env | undefined = undefined,
 > = 
 	OnlyOneTable extends keyof Env ? (keyof Env[OnlyOneTable]) : ( {[T in StrKeys<Env>]: `${T}.${StrKeys<Env[T]>}` }[StrKeys<Env>])
 
 export type FlatEnv<
-	Env extends Partial<Environment>,
+	Env extends Environment,
  	OnlyOneTable extends keyof Env | undefined = undefined,
 > = 
 	{ [K in FlatEnvKeys<Env, OnlyOneTable>]: 		K extends `${infer T}.${infer C}` ? (Env[T & keyof Env][C & keyof Env[T & keyof Env]]) : (Env[OnlyOneTable & keyof Env][K & keyof Env[OnlyOneTable & keyof Env]]) };
 	// Checking OnlyOneTable is not done at root, even tough it would simplify the type, because this form allows TS to know that FlatEnvKeys are keyof FlatEnv
 
-
-
-
-
+export type TablesWithType<Env extends Environment, Type extends any> = 
+	{ [Table in keyof Env] : Type extends Env[Table][keyof Env[Table]] ? Table : never}[keyof Env];
 
 
 

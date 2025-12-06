@@ -1,5 +1,4 @@
-import { HasDuplicateAliases } from './safers/alias';
-import {Environment, Join, EnvironmentFromJoin, Where, Field, Table, TableFromField} from './types';
+import {Environment, Join, EnvironmentFromJoin, Where, Field, Table, TableFromField, JoinHasDuplicateAliases} from './types';
 import { mergeWHEREClausesAsAND, whereToSQL } from './utils';
 
 type SelectQueryQuildOptions = {
@@ -84,7 +83,7 @@ export class SelectQuery<Env extends Environment, AccEnv extends Environment, Ta
 	 * @param join 
 	 * @returns 
 	 */
-	join<J extends Join<Env, AccEnv>, Invalid extends HasDuplicateAliases<J>>(join : Invalid extends true ? never : J) : SelectQuery<Env, EnvironmentFromJoin<Env, AccEnv, J>, TableResult, undefined>{
+	join<J extends Join<Env, AccEnv>, Invalid extends JoinHasDuplicateAliases<J>>(join : Invalid extends true ? never : J) : SelectQuery<Env, EnvironmentFromJoin<Env, AccEnv, J>, TableResult, undefined>{
 		this.#join = {...(this.#join ?? {}), ...join};
 		return (this as unknown ) as SelectQuery<Env, EnvironmentFromJoin<Env, AccEnv, J>, TableResult, undefined>;
 	}
