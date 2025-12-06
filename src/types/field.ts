@@ -69,23 +69,23 @@ The raw sql statement must be a string but can be the result of a function ! As 
 	// Field string form
 	type FieldStringForm<
 		Env extends Environment,
-		From extends keyof Env | never = never
+		OnlyOneTable extends keyof Env | undefined = undefined,
 	> =
 			'*'
 		| 	`${StrKeys<Env>}.*`
-		| 	FlatEnvKeys<Env, From>
-		| 	`${Extract<FlatEnvKeys<Env, From>, string>}@${string}`;
+		| 	FlatEnvKeys<Env, OnlyOneTable>
+		| 	`${Extract<FlatEnvKeys<Env, OnlyOneTable>, string>}@${string}`;
 
 	// Table from field string form
 	type TableFromFieldAsString<
 		Env extends Environment,
 		F extends string,
-		From extends keyof Env | never = never
+		OnlyOneTable extends keyof Env | undefined = undefined,
 	> = 
-		F extends '*' ? {[K in FlatEnvKeys<Env>] : FlatEnv<Env>[K]} : 
+		F extends '*' ? {[K in FlatEnvKeys<Env, OnlyOneTable>] : FlatEnv<Env, OnlyOneTable>[K]} : 
 			(F extends `${infer EnvKey}.*` ? {[K in keyof Env[EnvKey] as K extends string ? `${EnvKey}_${K}` : never] : Env[EnvKey][K]} :
-				(F extends `${string}@${infer alias}` ? { [a in alias as a extends string ? a : never] : (F extends `${infer k}@${string}` ? (k extends FlatEnvKeys<Env, From> ? FlatEnv<Env, From>[k] : never) : never) } : 
-					(F extends FlatEnvKeys<Env, From> ? {[f in F as PointToUnderscore<f>] : FlatEnv<Env, From>[f]} : never)
+				(F extends `${string}@${infer alias}` ? { [a in alias as a extends string ? a : never] : (F extends `${infer k}@${string}` ? (k extends FlatEnvKeys<Env, OnlyOneTable> ? FlatEnv<Env, OnlyOneTable>[k] : never) : never) } : 
+					(F extends FlatEnvKeys<Env, OnlyOneTable> ? {[f in F as PointToUnderscore<f>] : FlatEnv<Env, OnlyOneTable>[f]} : never)
 				)
 			);
 
@@ -100,12 +100,12 @@ The raw sql statement must be a string but can be the result of a function ! As 
 	// Field array form
 	type FieldArrayForm<
 		Env extends Environment,
-		From extends keyof Env | never = never
+		OnlyOneTable extends keyof Env | undefined = undefined,
 	> = 
 		Array<
 				`${StrKeys<Env>}.*` 
-			| 	FlatEnvKeys<Env, From> 
-			| 	`${Extract<FlatEnvKeys<Env, From>, string>}@${string}`
+			| 	FlatEnvKeys<Env, OnlyOneTable> 
+			| 	`${Extract<FlatEnvKeys<Env, OnlyOneTable>, string>}@${string}`
 		>;
 
 
@@ -113,9 +113,9 @@ The raw sql statement must be a string but can be the result of a function ! As 
 	type TableFromFieldAsArray<
 		Env extends Environment,
 		F extends Array<string>,
-		From extends keyof Env | never = never
+		OnlyOneTable extends keyof Env | undefined = undefined,
 	> = 
-		F extends [infer E extends string, ...(infer R extends Array<string>)] ? (TableFromFieldAsString<Env, E, From> & TableFromFieldAsArray<Env, R, From>) : {};
+		F extends [infer E extends string, ...(infer R extends Array<string>)] ? (TableFromFieldAsString<Env, E, OnlyOneTable> & TableFromFieldAsArray<Env, R, OnlyOneTable>) : {};
 
 
 
@@ -144,31 +144,31 @@ The raw sql statement must be a string but can be the result of a function ! As 
 	*/
 	type AggregateFieldObjectFormValue<
 		Env extends Environment,
-		From extends keyof Env | never = never
+		OnlyOneTable extends keyof Env | undefined = undefined,
 	> = {
-		group: FlatEnvKeys<Env, From> | Array<FlatEnvKeys<Env, From>>;
-		value: FlatEnvKeys<Env, From> | FieldObjectForm<Env, From>;	  // value can be a single column (flat key) OR a nested FieldObject describing an object
+		group: FlatEnvKeys<Env, OnlyOneTable> | Array<FlatEnvKeys<Env, OnlyOneTable>>;
+		value: FlatEnvKeys<Env, OnlyOneTable> | FieldObjectForm<Env, OnlyOneTable>;	  // value can be a single column (flat key) OR a nested FieldObject describing an object
 	};
 
 	// Field object form
 	type FieldObjectForm<
 		Env extends Environment,
-		From extends keyof Env | never = never
+		OnlyOneTable extends keyof Env | undefined = undefined,
 	> = 
-			{ [K in FlatEnvKeys<Env, From>]? : true | string;}
-		|	{ [K in `[]:${string}`]? : AggregateFieldObjectFormValue<Env, From> }
-		|	{ [K in `{}:${string}`]? : FieldObjectForm<Env, From> }
+			{ [K in FlatEnvKeys<Env, OnlyOneTable>]? : true | string;}
+		|	{ [K in `[]:${string}`]? : AggregateFieldObjectFormValue<Env, OnlyOneTable> }
+		|	{ [K in `{}:${string}`]? : FieldObjectForm<Env, OnlyOneTable> }
 		| 	{ [K in `sql:${string}`]? : string}
 
 	// Table from field object form
 	type TableFromFieldAsObject<
 		Env extends Environment,
 		F extends Record<string, any>,
-		From extends keyof Env | never = never 
+		OnlyOneTable extends keyof Env | undefined = undefined,
 	> = 
-			{ [k in keyof F as k extends FlatEnvKeys<Env, From> ? (F[k] extends string ? F[k] : PointToUnderscore<k>) : never] : FlatEnv<Env, From>[k & keyof FlatEnv<Env, From>]}
-		&	{ [k in keyof F as k extends `[]:${infer alias}` ? alias : never] : F[k] extends {value : infer A} ? Array<A extends FlatEnvKeys<Env, From> ? FlatEnv<Env, From>[A] : TableFromFieldAsObject<Env, A & Record<string, any>, From>> : never}
-		&	{ [k in keyof F as k extends `{}:${infer alias}` ? alias : never] : TableFromFieldAsObject<Env, F[k] & Record<string, any>, From>}
+			{ [k in keyof F as k extends FlatEnvKeys<Env, OnlyOneTable> ? (F[k] extends string ? F[k] : PointToUnderscore<k>) : never] : FlatEnv<Env, OnlyOneTable>[k & keyof FlatEnv<Env, OnlyOneTable>]}
+		&	{ [k in keyof F as k extends `[]:${infer alias}` ? alias : never] : F[k] extends {value : infer A} ? Array<A extends FlatEnvKeys<Env, OnlyOneTable> ? FlatEnv<Env, OnlyOneTable>[A] : TableFromFieldAsObject<Env, A & Record<string, any>, OnlyOneTable>> : never}
+		&	{ [k in keyof F as k extends `{}:${infer alias}` ? alias : never] : TableFromFieldAsObject<Env, F[k] & Record<string, any>, OnlyOneTable>}
 		&	{ [k in keyof F as k extends `sql:${infer alias}` ? alias : never] : any}
 
 
@@ -181,21 +181,21 @@ The raw sql statement must be a string but can be the result of a function ! As 
 
 	export type Field<
 		Env extends Environment,
-		From extends keyof Env | never = never
+		OnlyOneTable extends keyof Env | undefined = undefined,
 	> =
-		FieldStringForm<Env, From>
-		| FieldArrayForm<Env, From>
-		| FieldObjectForm<Env, From>;
+		FieldStringForm<Env, OnlyOneTable>
+		| FieldArrayForm<Env, OnlyOneTable>
+		| FieldObjectForm<Env, OnlyOneTable>;
 
 
 	export type TableFromField<
 		Env extends Environment,
-		F extends Field<Env, From>,
-		From extends keyof Env | never = never 
+		F extends Field<Env, OnlyOneTable>,
+		OnlyOneTable extends keyof Env | undefined = undefined,
 	> = Simplify<
-		F extends string ? TableFromFieldAsString<Env, F, From> :
-			(	F extends Array<string> ? TableFromFieldAsArray<Env, F, From> :
-				(	F extends Record<string, any> ? TableFromFieldAsObject<Env, F, From> : never )
+		F extends string ? TableFromFieldAsString<Env, F, OnlyOneTable> :
+			(	F extends Array<string> ? TableFromFieldAsArray<Env, F, OnlyOneTable> :
+				(	F extends Record<string, any> ? TableFromFieldAsObject<Env, F, OnlyOneTable> : never )
 			)>;
 
 

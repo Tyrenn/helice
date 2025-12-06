@@ -1,4 +1,5 @@
 import { Helice } from "../index.js";
+import { Join } from "../types/join.js";
 
 type Table1 = {
 	column1 : string;
@@ -7,13 +8,13 @@ type Table1 = {
 	column4 : Array<string>;
 }
 
-interface Table2{
+type Table2 = {
 	column21 : number;
 	column22 : string;
 	column23 : "bbb";
 }
 
-interface Table3{
+type Table3 = {
 	column31 : Array<number>;
 	column32 : Array<string>;
 }
@@ -24,11 +25,24 @@ type TestEnv = {
 	table3 : Table3;
 }
 
+let t0 : Join<TestEnv, {table1 : Table1}> = {
+	"table3" : "eeee"
+}
+
+// ! NE MARCHE PAS EN CAS DE TABLE QUI N'A PAS DE COLONNE SIMPLE
+
 
 // Select devrait générer une requete SelectTable
 // SelectTable.join une requete SelectEnv
 
-let t3 = new Helice<TestEnv>().select('table1').join({"i:table2" : "column21/table1.column2"}).field(["table2.column21", "table1.column1@c11"])
+let t3 = new Helice<TestEnv>()
+	.select('table1').join({
+		"table1@aa" : "column1 # table1.column3",
+		"table2@a1" : "column21 l# table1.column2",
+		"table3" : "eeee"
+	})
+
+//.join({"i:table2" : "column21/table1.column2"}).field(["table2.column21", "table1.column1@c11"])
 
 
 let t1 = new Helice<TestEnv>().select("table2").field("table2.column21@aaa").prepare({where : true});

@@ -1,6 +1,6 @@
 //import { Arrayed, TableWhere, Obj, QueryResult, TableField, OrderBy, PostgreDAO, Insert, SelectQueryFunction, InsertQueryFunction, ExistsQueryFunction, UpdateQueryFunction, DeleteQueryFunction, tsqueryWhere } from './types/index.js';
 
-import {Environment, Join, Obj, TSQuery} from './types';
+import {Environment, Obj, TSQuery} from './types';
 
 /* CLAUSE helper functions */
 
@@ -539,7 +539,7 @@ export function mergeSELECTClauses(...select : (string|undefined)[]){
 
 
 
-export function joinToSQL<Env extends Environment>(join : Join<Env> | undefined){
+export function joinToSQL<Env extends Environment>(join : JoinOld<Env> | undefined){
 	if(!join)
 		return '';
 

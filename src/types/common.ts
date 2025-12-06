@@ -47,20 +47,22 @@ export type FlatArray<A extends unknown[]> = A extends [] ? [] : A extends [infe
 
 
 /**
- * Extract keys of type FV from an object
+ * Extract T keys if T[keys] type is FV 
  */
-export type KeysOfType<T, FV extends any> = {
-		[k in keyof T] : T[k] extends FV ? k : never;
-	}[keyof T];
-
-
-export type KeysNotOfType<T, FV extends any> = {
-	[k in keyof T] : T[k] extends FV ? never : k
-}[keyof T]
+export type KeysOfType<Table, KeyType extends any> = { [k in keyof Table] : Table[k] extends KeyType ? k : never; }[keyof Table];
 
 
 /**
+ * Extract T keys if T[keys] type is not FV 
+ */
+export type KeysNotOfType<Table, KeyType extends any> = { [k in keyof Table] : Table[k] extends KeyType ? never : k }[keyof Table]
 
+
+
+/**
+Flattened Environment
+Working with the flat environment is way easier than a double depth object as the environment.
+But Environment is still required as it allows us to easily access table names.
 
 Env : {
 	table1 : {
@@ -82,28 +84,26 @@ FlatEnv<Env> : {
 	"table2.c22" : string;
 }
 
+If OnlyOneTable is given, then the type consider than only this one table is accessible and give back its type without prefix.
+This is useful for queries without joins.
+Only refer one table name in OnlyOneTable.
+
+OnlyOneTable basically change the whole type, in another project it would have been another type completely. 
+But its presence here drastically reduce complexity as this type is used everywhere other types would need to know there is only one table accessible.
+
  */
 export type FlatEnvKeys<
   Env extends Partial<Environment>,
-  From extends keyof Env | never = never
-> = ( {[T in StrKeys<Env>]: `${T}.${StrKeys<Env[T]>}` }[StrKeys<Env>]) | ( From extends keyof Env ? keyof Env[From] : never )
+  OnlyOneTable extends keyof Env | undefined = undefined,
+> = 
+	OnlyOneTable extends keyof Env ? (keyof Env[OnlyOneTable]) : ( {[T in StrKeys<Env>]: `${T}.${StrKeys<Env[T]>}` }[StrKeys<Env>])
 
 export type FlatEnv<
 	Env extends Partial<Environment>,
-	From extends keyof Env | never = never
-> = {
-	[K in FlatEnvKeys<Env, From>]: K extends `${infer T}.${infer C}` ? (Env[T & keyof Env][C & keyof Env[T & keyof Env]]) :	(Env[From & keyof Env][K & keyof Env[From & keyof Env]])
-};
-
-export type FlatEnvButTable<
-	Env extends  Partial<Environment>,
-	ExceptTable extends string,
-	From extends keyof Env | never = never
-> = {
-	[Key in FlatEnvKeys<Env, From> as Key extends `${infer T}.${string}` ? (T extends ExceptTable ? never : Key ) : never] : (Env[From & keyof Env][Key & keyof Env[From & keyof Env]]);
-}
-
-
+ 	OnlyOneTable extends keyof Env | undefined = undefined,
+> = 
+	{ [K in FlatEnvKeys<Env, OnlyOneTable>]: 		K extends `${infer T}.${infer C}` ? (Env[T & keyof Env][C & keyof Env[T & keyof Env]]) : (Env[OnlyOneTable & keyof Env][K & keyof Env[OnlyOneTable & keyof Env]]) };
+	// Checking OnlyOneTable is not done at root, even tough it would simplify the type, because this form allows TS to know that FlatEnvKeys are keyof FlatEnv
 
 
 

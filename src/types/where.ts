@@ -1,30 +1,18 @@
 
-import {Arrayed, KeysOfType, KeysNotOfType, Table, Environment, FlatEnv, FlatArray, UnArraying, StrKeys} from './common';
+import {Arrayed, KeysOfType, KeysNotOfType, Table, Environment, FlatEnv} from './common';
 
 /****************
 		WHERE
 
-TABLEWHERE : 
+	Where : 
 	{
-		column1 : value,
-		"<:column1" : value,
-		column1 : value,
-		"[]:column1" : value,
-		"&&:anyname" : TABLEWHERE 
-	}
+		table1.column1 : value,
+		"<:table1.column1" : value,
+		"[]:table1.column1" : value,
+		"table2.column2" : other column // Will compare 2 columns
 
-WHERE<Tables> 
-	{
-		table1 : TABLEWHERE<Table1>,
-		table2 : TABLEWHERE<Table2>,
-		"&&:anyname" : WHERE<Tables>
+		"&&:anyname" : Where | Where[]
 	}
-
-EnvironmentWhere<Env>{
-	prop : [] | typeof prop
-	"operator:prop" : [] | typeof
-	"&&:any" : EnvironmentWhere<Env>
-}
 
 {
 	a : "a",
@@ -92,10 +80,10 @@ Will translate in :
 	// }
 
 	// { [prefixcolumn] : Accepte tout}
-	type PrefixedProp<T extends Table, K extends keyof T, P extends string> = {	[k in K & string as `${P}${k}`]? : Arrayed<T[k] | null> |  TableWhere<T>[]; };
+	type PrefixedProp<T extends Table, K extends keyof T, P extends string> = {	[k in K & string as `${P}${k}`]? : Arrayed<T[k] | null> |  TableWhere<T>[] | KeysOfType<T, T[k]>; };
 
 	// { [prefixcolumn] : Accepte tout sauf les []}
-	type PrefixedPropNonArray<T extends Table, K extends keyof T, P extends string> = { [k in K & string as `${P}${k}`]? : T[k] | null |  TableWhere<T>[]; };
+	type PrefixedPropNonArray<T extends Table, K extends keyof T, P extends string> = { [k in K & string as `${P}${k}`]? : T[k] | null |  TableWhere<T>[] | KeysOfType<T, T[k]>; };
 
 
 
@@ -126,7 +114,7 @@ Will translate in :
 		& PrefixedProp<T, StringArrayKeys<T>, `[${'~~' | '~~*' | '!~~' | '!~~*'}]:`>					// LIKE operators on string[]
 		& PrefixedProp<T, NonArrayKeys<T>, `${'=' | '<>' | '!='}:`>											// =, != on non-array
 		& PrefixedPropNonArray<T, NonArrayKeys<T>, `${'>' | '>=' | '<' | '<='}:`>						// >, >=, <, ≤ on non-array
-		& PrefixedProp<T, StringKeys<T>, `${'~~' | '~~*' | '!~~' | '!~~*' | '~' | '~*'}:`>	// LIKE operators on string
+		& PrefixedProp<T, StringKeys<T>, `${'~~' | '~~*' | '!~~' | '!~~*' | '~' | '~*'}:`>			// LIKE operators on string
 		& TSQueryProp<T>		 																							// @@:tsquery
 		& { [k in `&&:${string}`]? : TableWhere<T>[]}															// nested AND
 
@@ -136,8 +124,9 @@ Will translate in :
    =  Final Type
    ========================================================================= */
 	// TODO Should authorise grouped [] to allow OR from the very start
+	// TODO Should authorise : table
+	// TODO Should prefix string like in join '' to separate from autocompleted columns ?
 	// TODO Test
-	// TODO For join just reuse the same but also add OtherColumn as possible values in Prefixed instead of TableWhere and remove TS and nested AND !
 
 	export type Where<Env extends Environment> = TableWhere<FlatEnv<Env>>;
 
