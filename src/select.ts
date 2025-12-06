@@ -73,6 +73,7 @@ export class SelectQuery<Env extends Environment, AccEnv extends Environment, Ta
 		}
 	}
 	
+	// TODO ADD duplicate aliases detection
 	field<const F extends Field<AccEnv, From>>(field : F) {
 		this.#field = field;
 		return (this as unknown) as SelectQuery<Env, AccEnv, TableFromField<AccEnv, F, From>, From>;

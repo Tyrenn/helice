@@ -75,6 +75,8 @@ import { Environment, FlatEnv, KeysOfType, Simplify, StrKeys, Table} from "./com
 			"b2" : null										// Comparison to values
 		}
 	*/
+	// TODO Add the possibility to join from string column to string[] (ANY operation)
+	// TODO Add the possibility to join from number column to number[] (ANY operation)
 	type JoinObjectValue<
 		Env extends Environment, 
 		AccessibleTables extends string,
