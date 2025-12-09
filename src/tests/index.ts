@@ -37,9 +37,12 @@ let t0 : Join<TestEnv, {table1 : Table1}> = {
 
 let t3 = new Helice<TestEnv>()
 	.select('table1').join({
-		"table1@aa" : "column1 # table1.column3",
-		"table2@a1" : "column21 l# table1.column2",
-		"table3" : "eeee"
+		"table1@aaa" : "column1 # table1.column3",
+		"table2" : "column21 l# table1.column2",
+	})
+	.field({
+		"aaa.column1" : "aaa",
+		"table1.column2" : "aa",
 	})
 
 //.join({"i:table2" : "column21/table1.column2"}).field(["table2.column21", "table1.column1@c11"])

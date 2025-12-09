@@ -100,7 +100,6 @@ import { Environment, FlatEnv, KeysOfType, Prettify, Simplify, StrKeys, Table, T
 			[table in Extract<TablesWithType<Env, (string | number | boolean)>, string> as `${table}${'' | `@${string}`}`]? : JoinStringValue<Env, StrKeys<AccEnv>, table> | JoinObjectValue<Env, StrKeys<AccEnv>, table>
 		}
 
-	// TODO Seems that it has a strange type...
 	export type EnvironmentFromJoin<
 		Env extends Environment,
 		AccEnv extends Environment,
@@ -116,19 +115,32 @@ import { Environment, FlatEnv, KeysOfType, Prettify, Simplify, StrKeys, Table, T
    =  Alias checker
    ========================================================================= */
 
-type ExtractAlias<K extends string> =
-  K extends `${string}@${infer A}` ? A : never;
+/**
+ AliasOrigin : {
+	"alias" : "original key"
+ }
 
-export type JoinHasDuplicateAliases<Obj extends Record<string,any>> =
-  {
-    [A in ExtractAlias<keyof Obj & string>]:
-      A extends never
-        ? never
-        : ExtractAlias<keyof Obj & string> extends A ? A : never
-  }[ExtractAlias<keyof Obj & string>] extends never
-    ? false
-    : true;
+Aliases : {
+	"original key" : "alias"
+}
+*/
+type AliasOrigin<Obj extends Record<string, any>> = {
+	[K in keyof Obj as K extends `${string}@${infer A}` ? A : K] : K
+}
 
+type Aliases<Obj extends Record<string, any>> = {
+	[K in keyof Obj] : K extends `${string}@${infer A}` ? A : K
+}
+
+type AliasAreUnique<Obj extends Record<string, any>> = {
+	[K in keyof Obj] : AliasOrigin<Obj>[Aliases<Obj>[K] & keyof AliasOrigin<Obj>] extends K ? never : K
+}[keyof Obj] extends never ? true : false
+
+
+export type JoinHasDuplicateAliases<Obj extends Record<string,any>, ExistingAliases extends string | never = never> = 
+	(		( AliasAreUnique<Obj> extends true ? false : true) 								// Duplicate alias inside object Alias map {alias : original key} if an alias exists 2 times then one of the entry will extends union of original key  
+		|	( Aliases<Obj>[keyof Obj] & ExistingAliases extends never ? false : true)	// Alias already existing
+	) extends false ?	false : "[WARNING] Duplicated table aliases";
 
 
 /* =========================================================================
@@ -166,53 +178,5 @@ const jTest : Join<TestEnv, Pick<TestEnv, "table1">> = {
 		column22 : "table1.column3"
 	}
 } as const;
-
-let rest : EnvironmentFromJoin<TestEnv, Pick<TestEnv, "table1">, typeof jTest> = {
-	
-};
-
-
-
-	//	JoinCandidateColumns<Env, number> gives : table1.b1 | table2.b2
-	// type JoinCandidateColumns<FTM extends FlatEnvironment, ColumnType extends string | number> = keyof {
-	// 	[k in keyof FTM as FTM[k] extends ColumnType ? k : never] : any;
-	// }
-
-	// // 
-	// type MultipleColumnsJoints<TE extends Environment, Table extends keyof TE & string> = {
-	// 	[Key in keyof TE[Table]]? : (TE[Table][Key] extends string | number ? JoinCandidateColumns<FlatEnvButTable<TE, Table>, TE[Table][Key]> : never)
-	// }
-
-	// type OneColumnJoints<TE extends Environment, Table extends keyof TE & string> = keyof {
-	// 	[Key in keyof TE[Table] as Key extends string ? 
-	// 		(TE[Table][Key] extends string | number ? 
-	// 			`${Key}/${JoinCandidateColumns<FlatEnvButTable<TE, Table>, TE[Table][Key]> extends string ? JoinCandidateColumns<FlatEnvButTable<TE, Table>, TE[Table][Key]> : never}`
-	// 			: never
-	// 		) : never]? : any
-	// }
-
-
-	// export type JoinOld<TE extends Environment> = {
-	// 	[Key in keyof TE as Key extends string ? `${'' | 'r:' | 'i:' | 'l:' | 'f:'}${Key}${'' | `@${string}`}` : never]? : Key extends string ? OneColumnJoints<TE, Key> | MultipleColumnsJoints<TE, Key> : never;
-	// }
-
-	// export type JoinExceptTables<TE extends Environment, Tables extends keyof TE | undefined = undefined> = {
-	// 	[Key in keyof TE as Key extends Tables ? never : (Key extends string ? `${'' | 'r:' | 'i:' | 'l:' | 'f:'}${Key}${'' | `@${string}`}` : never)]? : Key extends string ? OneColumnJoints<TE, Key> | MultipleColumnsJoints<TE, Key> : never;
-	// }
-
-	// export type ExtractAccessibleTableNamesFromJoin<EJ extends {[k : string | symbol] : any}> = 
-	// 	keyof { [Key in keyof EJ as Key extends `${string}:${infer T}@${string}` ? T : never] : any }
-	// 	|
-	// 	keyof { [Key in keyof EJ as Key extends `${string}:${string}@${string}` ? never : (Key extends `${infer T}@${string}` ? T : never)] : any }
-	// 	|
-	// 	keyof { [Key in keyof EJ as Key extends `${string}:${string}@${string}` |  `${string}@${string}` ? never : (Key extends `${string}:${infer T}` ? T : never)] : any }
-	// 	|
-	// 	keyof { [Key in keyof EJ as Key extends `${string}:${string}@${string}` |  `${string}@${string}` | `${string}:${string}` ? never : (Key extends `${infer T}` ? T : never)] : any }
-
-	// export type EnvironmentFromNameAndJoin<E extends Environment, N extends keyof E, EJ extends {[k : string | symbol] : any}> = {[key in N] : E[key]} & Pick<E, ExtractAccessibleTableNamesFromJoin<EJ>>;
-
-	// export type EnvironmentFromJoin<GlobalEnv extends Environment, AccEnv extends Environment, J extends Join<GlobalEnv>> = AccEnv & Pick<GlobalEnv, ExtractAccessibleTableNamesFromJoin<J>>
-
-
 
 

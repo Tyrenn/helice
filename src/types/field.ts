@@ -205,20 +205,52 @@ The raw sql statement must be a string but can be the result of a function ! As 
    =  Alias checker
    ========================================================================= */
 
-type ExtractAliasFromArrayForm<K extends string> = ;
-type ExtractAliasFromObjectForm<K extends object> =
-  (keyof K extends `${string}@${infer A}` ? A : never;
+/**
+ AliasOrigin : {
+	"alias" : "original key"
+ }
 
-export type FieldHasDuplicateAliases<Obj extends Record<string,any>> =
-  {
-    [A in ExtractAlias<keyof Obj & string>]:
-      A extends never
-        ? never
-        : ExtractAlias<keyof Obj & string> extends A ? A : never
-  }[ExtractAlias<keyof Obj & string>] extends never
-    ? false
-    : true;
+Aliases : {
+	"original key" : "alias"
+}
+ */
+type AliasOriginFromObject<Obj extends Record<string,any>> = { 
+	[ A in keyof Obj as A extends `${'[]' | '{}' | 'sql'}:${infer Alias}` ? Alias : (Obj[A] extends `${infer Alias}` ? Alias : (Obj[A] extends true ? A : never))] : A
+};
 
+type AliasOriginFromArray<Arr extends string[]> = { 
+	[ A in Arr[keyof Arr] as A extends `${string}@${infer Alias}` ? Alias : A & string] : A
+};
+
+type AliasesFromObject<Obj extends Record<string, any>> = {
+	[A in keyof Obj] : A extends `${'[]' | '{}' | 'sql'}:${infer Alias}` ? Alias : (Obj[A] extends `${infer Alias}` ? Alias : (Obj[A] extends true ? A : never));
+}
+
+type AliasesFromArray<Arr extends string[]> = { 
+	[ A in Arr[keyof Arr] & string] : A extends `${string}@${infer Alias}` ? Alias : A;
+};
+
+// If unique then One to One correspondance between AliasOrigin and Alias without any union
+type AliasAreUniqueInObject<Obj extends Record<string, any>> = {
+	[K in keyof Obj] : AliasOriginFromObject<Obj>[AliasesFromObject<Obj>[K] & keyof AliasOriginFromObject<Obj>] extends K ? never : K
+}[keyof Obj] extends never ? true : false
+
+type AliasAreUniqueInArray<Arr extends string[]> = {
+	[K in keyof Arr] : AliasOriginFromArray<Arr>[AliasesFromArray<Arr>[K & keyof AliasesFromArray<Arr>] & keyof AliasOriginFromArray<Arr>] extends K ? never : K
+}[keyof Arr] extends never ? true : false
+
+
+
+export type FieldHasDuplicateAliases<F extends Field<any, any>> = 
+	F extends string ? false : (
+		F extends string[] ? (AliasAreUniqueInArray<F> extends true ? false : "[WARNING] : Duplicate column aliases") : (
+			F extends Record<string, any> ? (AliasAreUniqueInObject<F> extends true ? false : "[WARNING] : Duplicate column aliases") : false
+		)	
+	)
+
+/* =========================================================================
+   =  Raw SQL get checker
+   ========================================================================= */
 
 
 
@@ -260,28 +292,32 @@ type TestEnv = {
 // }
 
 
-// let fromfo : TableFromField<ENV, {
-// 	"table1.a1" : "eee",
-// 	"c1" : true,
-// 	"{}:obj" : {
-// 		"table2.a2" : true,
-// 		"table2.b2" : true,
-// 	},
-// 	"[]:arr1" : {
-// 		group : "c1",
-// 		value : "table4.a4"
-// 	},
-// 	"[]:arr2" : {
-// 		group : "c1",
-// 		value : {
-// 			"table1.b1" : "v1",
-// 			"table2.b2" : true,
-// 		}
-// 	},
-//  }, "table1"> = {
+let fromfo : AliasAreUniqueInObject<{
+	"table1.a1" : "c1",
+	"table1.c1" : "c1",
+	"a1" : true,
+	"{}:obj" : {
+		"table2.a2" : true,
+		"table2.b2" : true,
+	},
+	"[]:a5" : {
+		group : "c1",
+		value : "table4.a4"
+	},
+	"[]:c1" : {
+		group : "c1",
+		value : {
+			"table1.b1" : "v1",
+			"table2.b2" : true,
+		}
+	},
+ } & Record<string, any>> = true
 
-// }
 
+let tegzeg : FieldHasDuplicateAliases<{
+		"aaa.column1" : "aaa",
+		"table1.column2" : "aaa",
+	}>
 
 
 

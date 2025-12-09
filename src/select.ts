@@ -1,4 +1,4 @@
-import {Environment, Join, EnvironmentFromJoin, Where, Field, Table, TableFromField, JoinHasDuplicateAliases} from './types';
+import {Environment, Join, EnvironmentFromJoin, Where, Field, Table, TableFromField, JoinHasDuplicateAliases, FieldHasDuplicateAliases} from './types';
 import { mergeWHEREClausesAsAND, whereToSQL } from './utils';
 
 type SelectQueryQuildOptions = {
@@ -72,19 +72,20 @@ export class SelectQuery<Env extends Environment, AccEnv extends Environment, Ta
 		}
 	}
 	
-	// TODO ADD duplicate aliases detection
-	field<const F extends Field<AccEnv, From>>(field : F) {
-		this.#field = field;
+
+	field<const F extends Field<AccEnv, From>, Invalid extends FieldHasDuplicateAliases<F>>(field : Invalid extends false ? F : Invalid) {
+		this.#field = field as F;
 		return (this as unknown) as SelectQuery<Env, AccEnv, TableFromField<AccEnv, F, From>, From>;
 	}
+
 
 	/**
 	 * Also detects duplicate aliases
 	 * @param join 
 	 * @returns 
 	 */
-	join<J extends Join<Env, AccEnv>, Invalid extends JoinHasDuplicateAliases<J>>(join : Invalid extends true ? never : J) : SelectQuery<Env, EnvironmentFromJoin<Env, AccEnv, J>, TableResult, undefined>{
-		this.#join = {...(this.#join ?? {}), ...join};
+	join<J extends Join<Env, AccEnv>, Invalid extends JoinHasDuplicateAliases<J, keyof AccEnv & string>>(join : Invalid extends false ? J : Invalid) : SelectQuery<Env, EnvironmentFromJoin<Env, AccEnv, J>, TableResult, undefined>{
+		this.#join = {...(this.#join ?? {}), ...(join as J)};
 		return (this as unknown ) as SelectQuery<Env, EnvironmentFromJoin<Env, AccEnv, J>, TableResult, undefined>;
 	}
 
