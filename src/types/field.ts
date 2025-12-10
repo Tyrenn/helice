@@ -243,8 +243,8 @@ type AliasAreUniqueInArray<Arr extends string[]> = {
 
 export type FieldHasDuplicateAliases<F extends Field<any, any>> = 
 	F extends string ? false : (
-		F extends string[] ? (AliasAreUniqueInArray<F> extends true ? false : "[WARNING] : Duplicate column aliases") : (
-			F extends Record<string, any> ? (AliasAreUniqueInObject<F> extends true ? false : "[WARNING] : Duplicate column aliases") : false
+		F extends string[] ? (AliasAreUniqueInArray<F> extends true ? false : true) : (
+			F extends Record<string, any> ? (AliasAreUniqueInObject<F> extends true ? false : true) : false
 		)	
 	)
 

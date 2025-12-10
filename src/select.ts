@@ -1,17 +1,31 @@
-import {Environment, Join, EnvironmentFromJoin, Where, Field, Table, TableFromField, JoinHasDuplicateAliases, FieldHasDuplicateAliases} from './types';
+import {Environment, Join, EnvironmentFromJoin, Where, Field, Table, TableFromField, JoinHasDuplicateAliases, FieldHasDuplicateAliases, Simplify} from './types';
 import { mergeWHEREClausesAsAND, whereToSQL } from './utils';
-
-type SelectQueryQuildOptions = {
-	where? : boolean,
-	limit? : boolean,
-	field? : boolean	
+type PreparedSelectQueryArguments<AccessibleEnv extends Environment> = {
+	field? : Field<AccessibleEnv>,
+	where? : Where<AccessibleEnv>,
+	limit? : number
 }
 
-type QueryParamFromOptions<Options extends SelectQueryQuildOptions, AccessibleEnv extends Environment> = [
-	...(Options["field"] extends true ? [Field<AccessibleEnv>] : []), 
-	...(Options["where"] extends true ? [Where<AccessibleEnv>] : []),
-	...(Options["limit"] extends true ? [number] : []),
-	]
+type PreparedQueryOptions<Obj extends Record<any, any>> = {[key in keyof Obj]? : boolean}
+
+type PreparedQueryOptionsIsAllFalseOrUndefined<Obj extends Record<any, any>> = {[ k in keyof Obj] : PreparedQueryOptions<Obj>[k] extends true ? k : never}[keyof Obj] extends never ? true : false;
+
+type PreparedQueryArguments<Options extends Record<any, any>> = 
+	PreparedQueryOptionsIsAllFalseOrUndefined<Options> extends true ? undefined : 
+	Simplify<
+		{
+			[k in keyof Options as PreparedQueryOptions<Options>[k] extends true ? k : never]? : Options[k];
+		}
+	>;
+
+type SelectQueryUsage = {
+	field : boolean;
+	join : boolean;
+	where : boolean;
+	limit : boolean;
+}
+
+type MethodResultType<NewType extends any, ThisType extends any, O extends string> = Omit<Pick<NewType, keyof ThisType & keyof NewType>, O>
 
 
 // Prepare donne la query avec le res
@@ -19,9 +33,14 @@ type QueryParamFromOptions<Options extends SelectQueryQuildOptions, AccessibleEn
 // to String devrait donner la query sans le reste
 
 // HasOptions extends Required<SelectQueryQuildOptions> = {where : false, limit : false, field : false}
-export class SelectQuery<Env extends Environment, AccEnv extends Environment, TableResult extends Table, From extends keyof AccEnv | undefined>{
+export class SelectQuery<
+	Env extends Environment, 
+	AccEnv extends Environment, 
+	TableResult extends Table, 
+	From extends keyof AccEnv | undefined
+>{
 	
-	#from : string;	// TODO The fact that never is passed after join render all very difficult, Maybe just not type #from with it ? Rather with AccEnv
+	#from : string;
 	#field : Field<AccEnv, From> = '*';
 	#where : Where<AccEnv> | undefined;
 	#join : Join<Env, AccEnv> | undefined;
@@ -32,15 +51,13 @@ export class SelectQuery<Env extends Environment, AccEnv extends Environment, Ta
 	}
 
 	// Should retrun a function ready to accept field, where, limit, offset parameters
-	prepare<O extends SelectQueryQuildOptions>(options? : O) : (...args : QueryParamFromOptions<O, AccEnv>) => TableResult {
-		return (...args : QueryParamFromOptions<O, AccEnv>) => {
-			let indexField = options?.field ? 1 : 0;
-			let indexWhere = options?.where ? indexField + 1 : indexField;
-			let indexLimit = options?.limit ? indexWhere + 1 : indexWhere;
+	prepare<A extends PreparedSelectQueryArguments<AccEnv>, O extends PreparedQueryOptions<A>>(options? : O) : (args : PreparedQueryArguments<A>) => TableResult {
+		return (args? : PreparedQueryArguments<A>) => {
+			let castedArgs : A | undefined = args as A | undefined;
 
-			let field : Field<AccEnv> | undefined = options?.field ? args[indexField - 1] as Field<AccEnv> : undefined;
-			let where : Where<AccEnv> | undefined = options?.where ? args[indexWhere - 1] as Where<AccEnv> : undefined;
-			let limit : number | undefined = options?.limit ? args[indexLimit - 1] as number : undefined;
+			let field : Field<AccEnv> | undefined = options?.field ? castedArgs?.field : undefined;
+			let where : Where<AccEnv> | undefined = options?.where ? castedArgs?.where : undefined;
+			let limit : number | undefined = options?.limit ? castedArgs?.limit : undefined;
 			
 			let flattenThisWhere = this.#where ? whereToSQL(this.#where) : undefined;
 			let flattenWhere = where ? whereToSQL(where, flattenThisWhere?.nextvar ?? 1) : undefined;
@@ -73,9 +90,11 @@ export class SelectQuery<Env extends Environment, AccEnv extends Environment, Ta
 	}
 	
 
-	field<const F extends Field<AccEnv, From>, Invalid extends FieldHasDuplicateAliases<F>>(field : Invalid extends false ? F : Invalid) {
+	field<const F extends Field<AccEnv, From>, Invalid extends FieldHasDuplicateAliases<F>>(
+		field : Invalid extends false ? F : "[WARNING] : Duplicated Column Alias" & never
+	){
 		this.#field = field as F;
-		return (this as unknown) as SelectQuery<Env, AccEnv, TableFromField<AccEnv, F, From>, From>;
+		return (this as unknown) as MethodResultType<SelectQuery<Env, AccEnv, TableFromField<AccEnv, F, From>, From>, typeof this, "field" | "join">;
 	}
 
 
@@ -84,19 +103,25 @@ export class SelectQuery<Env extends Environment, AccEnv extends Environment, Ta
 	 * @param join 
 	 * @returns 
 	 */
-	join<J extends Join<Env, AccEnv>, Invalid extends JoinHasDuplicateAliases<J, keyof AccEnv & string>>(join : Invalid extends false ? J : Invalid) : SelectQuery<Env, EnvironmentFromJoin<Env, AccEnv, J>, TableResult, undefined>{
-		this.#join = {...(this.#join ?? {}), ...(join as J)};
-		return (this as unknown ) as SelectQuery<Env, EnvironmentFromJoin<Env, AccEnv, J>, TableResult, undefined>;
+	join<J extends Join<Env, AccEnv>, Invalid extends JoinHasDuplicateAliases<J, keyof AccEnv & string>>(
+		join : Invalid extends false ? J : "[WARNING] : Duplicated Table Alias" & never
+	){
+		this.#join = join as J;
+		return (this as unknown ) as MethodResultType<SelectQuery<Env, EnvironmentFromJoin<Env, AccEnv, J>, TableResult, undefined>, typeof this, "join">;
 	}
 
-	where<W extends Where<AccEnv>>(where : W) : SelectQuery<Env, AccEnv, TableResult, From>{
-		this.#where = {...this.#where, ...where};
-		return this;
+	where<W extends Where<AccEnv>>(
+		where : W
+	){
+		this.#where = where;
+		return (this as unknown) as MethodResultType<SelectQuery<Env, AccEnv, TableResult, From>, typeof this, "where">;
 	}
 
-	limit(limit : number) : SelectQuery<Env, AccEnv, TableResult, From>{
+	limit(
+		limit : number
+	){
 		this.#limit = limit;
-		return this;
+		return (this as unknown) as MethodResultType<SelectQuery<Env, AccEnv, TableResult, From>, typeof this, "limit">;
 	}
 }
 

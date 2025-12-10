@@ -136,11 +136,10 @@ type AliasAreUnique<Obj extends Record<string, any>> = {
 	[K in keyof Obj] : AliasOrigin<Obj>[Aliases<Obj>[K] & keyof AliasOrigin<Obj>] extends K ? never : K
 }[keyof Obj] extends never ? true : false
 
-
 export type JoinHasDuplicateAliases<Obj extends Record<string,any>, ExistingAliases extends string | never = never> = 
 	(		( AliasAreUnique<Obj> extends true ? false : true) 								// Duplicate alias inside object Alias map {alias : original key} if an alias exists 2 times then one of the entry will extends union of original key  
 		|	( Aliases<Obj>[keyof Obj] & ExistingAliases extends never ? false : true)	// Alias already existing
-	) extends false ?	false : "[WARNING] Duplicated table aliases";
+	) extends false ?	false : true;
 
 
 /* =========================================================================
