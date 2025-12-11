@@ -1,5 +1,5 @@
-import { Environment, FlatEnv, StrKeys, FlatEnvKeys, Simplify,  } from "./common";
-
+import { FlatEnvKeys, Simplify, FlatEnv, StrKeys, Environment } from "../types";
+import { SyntaxKeys, DefaultSyntaxKeys } from "../syntaxkeys.js";
 
 /**=========================================================================
    =  Documentation
@@ -70,21 +70,25 @@ The raw sql statement must be a string but can be the result of a function ! As 
 	type FieldStringForm<
 		Env extends Environment,
 		OnlyOneTable extends keyof Env | undefined = undefined,
+
+		SK extends SyntaxKeys = DefaultSyntaxKeys ,
 	> =
 			'*'
 		| 	`${StrKeys<Env>}.*`
 		| 	FlatEnvKeys<Env, OnlyOneTable>
-		| 	`${Extract<FlatEnvKeys<Env, OnlyOneTable>, string>}@${string}`;
+		| 	`${Extract<FlatEnvKeys<Env, OnlyOneTable>, string>}${SK["alias"]}${string}`;
 
 	// Table from field string form
 	type TableFromFieldAsString<
 		Env extends Environment,
 		F extends string,
 		OnlyOneTable extends keyof Env | undefined = undefined,
+
+		SK extends SyntaxKeys = DefaultSyntaxKeys ,
 	> = 
 		F extends '*' ? {[K in FlatEnvKeys<Env, OnlyOneTable>] : FlatEnv<Env, OnlyOneTable>[K]} : 
 			(F extends `${infer EnvKey}.*` ? {[K in keyof Env[EnvKey] as K extends string ? `${EnvKey}_${K}` : never] : Env[EnvKey][K]} :
-				(F extends `${string}@${infer alias}` ? { [a in alias as a extends string ? a : never] : (F extends `${infer k}@${string}` ? (k extends FlatEnvKeys<Env, OnlyOneTable> ? FlatEnv<Env, OnlyOneTable>[k] : never) : never) } : 
+				(F extends `${string}${SK["alias"]}${infer alias}` ? { [a in alias as a extends string ? a : never] : (F extends `${infer k}${SK["alias"]}${string}` ? (k extends FlatEnvKeys<Env, OnlyOneTable> ? FlatEnv<Env, OnlyOneTable>[k] : never) : never) } : 
 					(F extends FlatEnvKeys<Env, OnlyOneTable> ? {[f in F as PointToUnderscore<f>] : FlatEnv<Env, OnlyOneTable>[f]} : never)
 				)
 			);
@@ -101,11 +105,13 @@ The raw sql statement must be a string but can be the result of a function ! As 
 	type FieldArrayForm<
 		Env extends Environment,
 		OnlyOneTable extends keyof Env | undefined = undefined,
+
+		SK extends SyntaxKeys = DefaultSyntaxKeys ,
 	> = 
 		Array<
 				`${StrKeys<Env>}.*` 
 			| 	FlatEnvKeys<Env, OnlyOneTable> 
-			| 	`${Extract<FlatEnvKeys<Env, OnlyOneTable>, string>}@${string}`
+			| 	`${Extract<FlatEnvKeys<Env, OnlyOneTable>, string>}${SK["alias"]}${string}`
 		>;
 
 
@@ -114,8 +120,10 @@ The raw sql statement must be a string but can be the result of a function ! As 
 		Env extends Environment,
 		F extends Array<string>,
 		OnlyOneTable extends keyof Env | undefined = undefined,
+
+		SK extends SyntaxKeys = DefaultSyntaxKeys ,
 	> = 
-		F extends [infer E extends string, ...(infer R extends Array<string>)] ? (TableFromFieldAsString<Env, E, OnlyOneTable> & TableFromFieldAsArray<Env, R, OnlyOneTable>) : {};
+		F extends [infer E extends string, ...(infer R extends Array<string>)] ? (TableFromFieldAsString<Env, E, OnlyOneTable, SK> & TableFromFieldAsArray<Env, R, OnlyOneTable, SK>) : {};
 
 
 
@@ -145,31 +153,37 @@ The raw sql statement must be a string but can be the result of a function ! As 
 	type AggregateFieldObjectFormValue<
 		Env extends Environment,
 		OnlyOneTable extends keyof Env | undefined = undefined,
+		
+		SK extends SyntaxKeys = DefaultSyntaxKeys 
 	> = {
 		group: FlatEnvKeys<Env, OnlyOneTable> | Array<FlatEnvKeys<Env, OnlyOneTable>>;
-		value: FlatEnvKeys<Env, OnlyOneTable> | FieldObjectForm<Env, OnlyOneTable>;	  // value can be a single column (flat key) OR a nested FieldObject describing an object
+		value: FlatEnvKeys<Env, OnlyOneTable> | FieldObjectForm<Env, OnlyOneTable, SK>;	  // value can be a single column (flat key) OR a nested FieldObject describing an object
 	};
 
 	// Field object form
 	type FieldObjectForm<
 		Env extends Environment,
 		OnlyOneTable extends keyof Env | undefined = undefined,
+
+		SK extends SyntaxKeys = DefaultSyntaxKeys 
 	> = 
 			{ [K in FlatEnvKeys<Env, OnlyOneTable>]? : true | string;}
-		|	{ [K in `[]:${string}`]? : AggregateFieldObjectFormValue<Env, OnlyOneTable> }
-		|	{ [K in `{}:${string}`]? : FieldObjectForm<Env, OnlyOneTable> }
-		| 	{ [K in `sql:${string}`]? : string}
+		|	{ [K in `${SK["aggregation"]}:${string}`]? : AggregateFieldObjectFormValue<Env, OnlyOneTable, SK> }
+		|	{ [K in `${SK["json"]}:${string}`]? : FieldObjectForm<Env, OnlyOneTable, SK> }
+		| 	{ [K in `${SK["raw"]}:${string}`]? : string}
 
 	// Table from field object form
 	type TableFromFieldAsObject<
 		Env extends Environment,
 		F extends Record<string, any>,
 		OnlyOneTable extends keyof Env | undefined = undefined,
+
+		SK extends SyntaxKeys = DefaultSyntaxKeys 
 	> = 
 			{ [k in keyof F as k extends FlatEnvKeys<Env, OnlyOneTable> ? (F[k] extends string ? F[k] : PointToUnderscore<k>) : never] : FlatEnv<Env, OnlyOneTable>[k & keyof FlatEnv<Env, OnlyOneTable>]}
-		&	{ [k in keyof F as k extends `[]:${infer alias}` ? alias : never] : F[k] extends {value : infer A} ? Array<A extends FlatEnvKeys<Env, OnlyOneTable> ? FlatEnv<Env, OnlyOneTable>[A] : TableFromFieldAsObject<Env, A & Record<string, any>, OnlyOneTable>> : never}
-		&	{ [k in keyof F as k extends `{}:${infer alias}` ? alias : never] : TableFromFieldAsObject<Env, F[k] & Record<string, any>, OnlyOneTable>}
-		&	{ [k in keyof F as k extends `sql:${infer alias}` ? alias : never] : any}
+		&	{ [k in keyof F as k extends `${SK["aggregation"]}:${infer alias}` ? alias : never] : F[k] extends {value : infer A} ? Array<A extends FlatEnvKeys<Env, OnlyOneTable> ? FlatEnv<Env, OnlyOneTable>[A] : TableFromFieldAsObject<Env, A & Record<string, any>, OnlyOneTable, SK>> : never}
+		&	{ [k in keyof F as k extends `${SK["json"]}:${infer alias}` ? alias : never] : TableFromFieldAsObject<Env, F[k] & Record<string, any>, OnlyOneTable, SK>}
+		&	{ [k in keyof F as k extends `${SK["raw"]}:${infer alias}` ? alias : never] : any}
 
 
 
@@ -182,20 +196,24 @@ The raw sql statement must be a string but can be the result of a function ! As 
 	export type Field<
 		Env extends Environment,
 		OnlyOneTable extends keyof Env | undefined = undefined,
+
+		SK extends SyntaxKeys = DefaultSyntaxKeys 
 	> =
-		FieldStringForm<Env, OnlyOneTable>
-		| FieldArrayForm<Env, OnlyOneTable>
-		| FieldObjectForm<Env, OnlyOneTable>;
+		FieldStringForm<Env, OnlyOneTable, SK>
+		| FieldArrayForm<Env, OnlyOneTable, SK>
+		| FieldObjectForm<Env, OnlyOneTable, SK>;
 
 
 	export type TableFromField<
 		Env extends Environment,
-		F extends Field<Env, OnlyOneTable>,
+		F extends Field<Env, OnlyOneTable, SK>,
 		OnlyOneTable extends keyof Env | undefined = undefined,
+
+		SK extends SyntaxKeys = DefaultSyntaxKeys 
 	> = Simplify<
-		F extends string ? TableFromFieldAsString<Env, F, OnlyOneTable> :
-			(	F extends Array<string> ? TableFromFieldAsArray<Env, F, OnlyOneTable> :
-				(	F extends Record<string, any> ? TableFromFieldAsObject<Env, F, OnlyOneTable> : never )
+		F extends string ? TableFromFieldAsString<Env, F, OnlyOneTable, SK> :
+			(	F extends Array<string> ? TableFromFieldAsArray<Env, F, OnlyOneTable, SK> :
+				(	F extends Record<string, any> ? TableFromFieldAsObject<Env, F, OnlyOneTable, SK> : never )
 			)>;
 
 
@@ -214,37 +232,66 @@ Aliases : {
 	"original key" : "alias"
 }
  */
-type AliasOriginFromObject<Obj extends Record<string,any>> = { 
-	[ A in keyof Obj as A extends `${'[]' | '{}' | 'sql'}:${infer Alias}` ? Alias : (Obj[A] extends `${infer Alias}` ? Alias : (Obj[A] extends true ? A : never))] : A
+type AliasOriginFromObject<
+	Obj extends Record<string,any>, 
+
+	SK extends SyntaxKeys = DefaultSyntaxKeys 	
+> = { 
+	[ A in keyof Obj as A extends `${SK['aggregation' | 'json' | 'raw']}:${infer Alias}` ? Alias : (Obj[A] extends `${infer Alias}` ? Alias : (Obj[A] extends true ? A : never))] : A
 };
 
-type AliasOriginFromArray<Arr extends string[]> = { 
-	[ A in Arr[keyof Arr] as A extends `${string}@${infer Alias}` ? Alias : A & string] : A
+type AliasOriginFromArray<
+	Arr extends string[],
+
+	SK extends SyntaxKeys = DefaultSyntaxKeys 
+> = { 
+	[ A in Arr[keyof Arr] as A extends `${string}${SK["alias"]}${infer Alias}` ? Alias : A & string] : A
 };
 
-type AliasesFromObject<Obj extends Record<string, any>> = {
-	[A in keyof Obj] : A extends `${'[]' | '{}' | 'sql'}:${infer Alias}` ? Alias : (Obj[A] extends `${infer Alias}` ? Alias : (Obj[A] extends true ? A : never));
+type AliasesFromObject<
+	Obj extends Record<string, any>,
+
+	SK extends SyntaxKeys = DefaultSyntaxKeys 
+> = {
+	[A in keyof Obj] : A extends `${SK['aggregation' | 'json' | 'raw']}:${infer Alias}` ? Alias : (Obj[A] extends `${infer Alias}` ? Alias : (Obj[A] extends true ? A : never));
 }
 
-type AliasesFromArray<Arr extends string[]> = { 
-	[ A in Arr[keyof Arr] & string] : A extends `${string}@${infer Alias}` ? Alias : A;
+type AliasesFromArray<
+	Arr extends string[],
+	
+	SK extends SyntaxKeys = DefaultSyntaxKeys 
+> = { 
+	[ A in Arr[keyof Arr] & string] : A extends `${string}${SK["alias"]}${infer Alias}` ? Alias : A;
 };
 
 // If unique then One to One correspondance between AliasOrigin and Alias without any union
-type AliasAreUniqueInObject<Obj extends Record<string, any>> = {
-	[K in keyof Obj] : AliasOriginFromObject<Obj>[AliasesFromObject<Obj>[K] & keyof AliasOriginFromObject<Obj>] extends K ? never : K
+type AliasAreUniqueInObject<
+	Obj extends Record<string, any>,
+
+
+	SK extends SyntaxKeys = DefaultSyntaxKeys 
+> = {
+	[K in keyof Obj] : AliasOriginFromObject<Obj, SK>[AliasesFromObject<Obj, SK>[K] & keyof AliasOriginFromObject<Obj, SK>] extends K ? never : K
 }[keyof Obj] extends never ? true : false
 
-type AliasAreUniqueInArray<Arr extends string[]> = {
-	[K in keyof Arr] : AliasOriginFromArray<Arr>[AliasesFromArray<Arr>[K & keyof AliasesFromArray<Arr>] & keyof AliasOriginFromArray<Arr>] extends K ? never : K
+type AliasAreUniqueInArray<
+	Arr extends string[],
+
+	SK extends SyntaxKeys = DefaultSyntaxKeys 
+> = {
+	[K in keyof Arr] : AliasOriginFromArray<Arr, SK>[AliasesFromArray<Arr, SK>[K & keyof AliasesFromArray<Arr, SK>] & keyof AliasOriginFromArray<Arr, SK>] extends K ? never : K
 }[keyof Arr] extends never ? true : false
 
 
 
-export type FieldHasDuplicateAliases<F extends Field<any, any>> = 
+export type FieldHasDuplicateAliases<
+	F extends Field<any, any, SK>,
+
+	SK extends SyntaxKeys = DefaultSyntaxKeys 
+> = 
 	F extends string ? false : (
-		F extends string[] ? (AliasAreUniqueInArray<F> extends true ? false : true) : (
-			F extends Record<string, any> ? (AliasAreUniqueInObject<F> extends true ? false : true) : false
+		F extends string[] ? (AliasAreUniqueInArray<F, SK> extends true ? false : never) : (
+			F extends Record<string, any> ? (AliasAreUniqueInObject<F, SK> extends true ? false : never) : false
 		)	
 	)
 

@@ -1,12 +1,13 @@
 import { SelectQuery } from "./select";
+import { DefaultSyntaxKeys, SyntaxKeys } from "./syntaxkeys";
 import { Environment } from "./types";
 
 
 
 
 
-export class Helice<Env extends Environment>{
-	select<T extends keyof Env & string>(tablename : T) : SelectQuery<Env, Pick<Env, T>, {}, T>{
-		return new SelectQuery<Env, Pick<Env, T>, {}, T>(tablename);
+export class Helice<Env extends Environment, SK extends SyntaxKeys = DefaultSyntaxKeys>{
+	select<T extends keyof Env & string>(tablename : T) : SelectQuery<Env, Pick<Env, T>, {}, T, SK>{
+		return new SelectQuery<Env, Pick<Env, T>, {}, T, SK>(tablename);
 	}
 }

@@ -1,167 +1,224 @@
-//import { Arrayed, TableWhere, Obj, QueryResult, TableField, OrderBy, PostgreDAO, Insert, SelectQueryFunction, InsertQueryFunction, ExistsQueryFunction, UpdateQueryFunction, DeleteQueryFunction, tsqueryWhere } from './types/index.js';
 
-import {Environment, Obj, TSQuery} from './types';
+import {Arrayed, KeysOfType, KeysNotOfType, Table, Environment, FlatEnv, Obj} from '../types';
+import { DefaultSyntaxKeys, SyntaxKeys } from '../syntaxkeys';
 
-/* CLAUSE helper functions */
+/****************
+		WHERE
 
-/**
- * Flatten an array of objects or an object for INSERT useful clauses
-
-	Array of objects example
-
-		let objs = [
-			{nb : 12, ar : ['b', 'a'], str : 'hello'},
-			{nb : 14, ar : ['c', 'd'], str : 'bye'}
-		];
-
-		{
-			properties: 'nb,ar,str',
-			variables: '($1,$2,$3),($4,$5,$6)',
-			values: [ 12, [ 'b', 'a' ], 'hello', 14, [ 'c', 'd' ], 'bye' ],
-			nextdollar: 6
-		}
-
-	Object example
-
-		let obj = {nb : 12, ar : ['b', 'a'], str : 'hello'};
-
-		{
-			properties: 'nb,ar,str',
-			variables: '($1,$2,$3)',
-			values: [ 12, [ 'b', 'a' ], 'hello' ],
-			nextdollar: 3
-		}
- */
-export function toINSERTClauses(data : Obj | Obj[], startvar : number = 1, encryptedColumns? : string[]) : {properties : string, variables : string, values : Array<any>, nextvar : number}{
-	const value : any[] = [];
-	let variables = "";
-	let properties = "";
-	let i = startvar;
-
-	const flattenValues = (obj : any) => {
-		if(!obj || typeof obj !== 'object')
-			return
-
-		variables += '(';
-		for(const prop in obj){
-			if(typeof obj[prop] === "undefined")
-				continue
-			if(obj[prop] === 'DEFAULT'){
-				variables += 'DEFAULT,';
-				continue
-			}
-			variables += `${encryptedColumns?.includes(prop) ? 'encrypt:' : ''}$${i++},`;
-			value.push(obj[prop]);
-		}
-		variables = variables.slice(0, -1);
-		variables += "),";
-	}
-
-	const flattenProps = (obj : any) => {
-		if(!obj || typeof obj !== 'object')
-			return
-
-		for(const prop in obj){
-			if(typeof obj[prop] !== "undefined")
-				properties += `${prop},`;
-		}
-	}
-
-	if(Array.isArray(data)){
-
-		flattenProps(data[0]);
-
-		const nbprops = Object.keys(data[0]).length;
-		for(const obj of data){
-			if(Object.keys(obj).length != nbprops)
-				throw new Error('Unormalized data');
-			flattenValues(obj);
-		}
-	}
-	else{
-		flattenProps(data);
-		flattenValues(data);
-	}
-
-	variables = variables.slice(0, -1);
-	properties = properties.slice(0, -1);
-
-	return {properties : properties, variables: variables, values: value, nextvar : i};
-}
-
-
-
-/**
-	Transform an object to a fields clause string
-
-	EXAMPLE :
-
+	Where : 
 	{
-		a : {
-			'*' : ""
+		table1.column1 : value,
+		"<:table1.column1" : value,
+		"[]:table1.column1" : value,
+		"table2.column2" : other column // Will compare 2 columns
+
+		"&&:anyname" : Where | Where[]
+	}
+
+{
+	a : "a",
+	"&&:any" : [{
+			b : "b2",
+			a : "a2",
 		},
-		b : "aliasb",
-		c : {
-			propc1 : 'pc1',
-			propc2 : 'pc2'
-		}
-	}
-
-	OUTPUT : a.*, b AS aliasb, c.propc1 AS pc1, c.propc2 AS pc2
- */
-
-export function toSELECTClause(data : Obj | '*', prefix? : string, encryptedColumns? : string[]) : string{
-	if(data === '*' && encryptedColumns)
-		throw new Error("Cannot use global selector with encrypted columns");
-
-	if(data === '*')
-		return '*';
-
-	let fields = "";
-	const dottedPrefix = prefix ? prefix + "." : '';
-
-	for(const prop in data){
-		if(typeof data[prop] === 'object'){
-			fields += toSELECTClause(data[prop], prop) + ', ';
-		}
-		else {
-			const name = data[prop] !== "" ? data[prop] : undefined;
-			fields += `${dottedPrefix}${encryptedColumns?.includes(prop) ? 'decrypt:' : ''}${prop}${(!!name || encryptedColumns?.includes(prop)) ? ` AS ${name ?? prop}` : ""}, `;
-		}
-	}
-	fields = fields.slice(0,-2);
-
-	return fields;
-}
-
-
-
-/**
- * Flatten an array of objects or an object as UPDATE useful clauses
-		let obj = {nb : 12, ar : ['b', 'a'], str : 'hello'};
 		{
-			set: 'nb = $1,ar = $2,str = $3,',
-			values: [ 12, [ 'b', 'a' ], 'hello' ],
-			nextvar: 3
+			b : "b1",
+			a : "a1"
+		},
+		{
+			b : "b3",
+			"&&:any" : [{
+					c : "c1",
+					d : "d1"
+				},
+				{
+					c : "c2",
+					d : "d2"
+				}
+			]
 		}
- */
-export function toUPDATEClauses(data : Obj, startvar : number = 1, encryptedColumns? : string[]) : {set : string, values : Array<any>, nextvar : number}{
-	const values : Array<any> = [];
-	let set : string = "";
-	let i = startvar;
-
-	for(const prop in data){
-		if(typeof data[prop] !== "undefined"){
-			set += `${prop} = ${encryptedColumns?.includes(prop) ? 'encrypt:' : ''}$${i++},`;
-			values.push(data[prop]);
-		}
-	}
-
-	set = set.slice(0, -1);
-
-	return {set, values, nextvar : i};
+	]
 }
 
+Will translate in :
+	a = "a" 
+	AND 
+	(
+			(b = "b2" AND a = "a2") 
+		OR (b = "b1" AND a = "a1") 
+		OR (b = "b3" AND 
+				(
+						(c = "c1" AND d = "d1") 
+					OR (c = "c2" AND d = "d2")
+				)
+			)
+	)
+
+*/
+
+
+/* =========================================================================
+   =  Grammar
+   ========================================================================= */
+
+
+	/** --------- Precomputed Key groups ------------- */
+	type ArrayKeys<T> = KeysOfType<T, any[]>;
+	type StringArrayKeys<T> = KeysOfType<T, string[]>;
+	type StringKeys<T> = KeysOfType<T, string>;
+	type NonArrayKeys<T> = KeysNotOfType<T, any[]>;
+
+
+
+	/** --------- Prefix Properties ------------- */
+
+	// type prefixPropWhereWithArray<T extends Table, P extends string> = {
+	// 	[k in keyof T as k extends string ? `${P}${k}` : never]? : Arrayed<T[k] | null> |  TableWhere<T>[];
+	// }
+
+	// type prefixPropWhereWithoutArray<T extends Table, P extends string> = {
+	// 	[k in keyof T as k extends string ? `${P}${k}` : never]? : UnArraying<T[k] | null> |  TableWhere<T>[];
+	// }
+
+	// { [prefixcolumn] : Accepte tout}
+	type PrefixedProp<
+		T extends Table, 
+		K extends keyof T, 
+		P extends string,
+	
+		SK extends SyntaxKeys 
+	> = {	[k in K & string as `${P}${k}`]? : Arrayed<T[k] | null> |  TableWhere<T, SK>[] | KeysOfType<T, T[k]>; };
+
+	// { [prefixcolumn] : Accepte tout sauf les []}
+	type PrefixedPropNonArray<
+		T extends Table, 
+		K extends keyof T, 
+		P extends string,
+
+		SK extends SyntaxKeys 
+	> = { [k in K & string as `${P}${k}`]? : T[k] | null |  TableWhere<T, SK>[] | KeysOfType<T, T[k]>; };
+
+
+
+	/** --------- TS QUERY Properties ------------- */
+
+	export type TSQuery = {
+		value : string,
+		weights? : number[],
+		flag? : number,
+		language : string;
+	}
+
+	type TSQueryProp<
+		T, 
+		SK extends SyntaxKeys 
+	> = {
+		[K in StringArrayKeys<T> & string as `${SK["tsquery"]}:${K}`]?: TSQuery;
+	}
+
+
+
+	/** --------- Base Properties ------------- */
+	type BaseProp<
+		T extends Table,
+		
+		SK extends SyntaxKeys 
+	> = {
+		[k in keyof T]? : Arrayed<T[k] | null> | TableWhere<T, SK>[];
+	}
+
+
+	type TableWhere<
+		T extends Table,
+
+		SK extends SyntaxKeys 
+	> = 
+		BaseProp<T, SK> 
+		& PrefixedProp<T, ArrayKeys<T>, `[${'' | '=' | '!' | '<>' | '!='}]:`, SK>							// arrays operators [=],[!],[]… on arrays
+		& PrefixedProp<T, StringArrayKeys<T>, `[${'~~' | '~~*' | '!~~' | '!~~*'}]:`, SK>					// LIKE operators on string[]
+		& PrefixedProp<T, NonArrayKeys<T>, `${'=' | '<>' | '!='}:`, SK>										// =, != on non-array
+		& PrefixedPropNonArray<T, NonArrayKeys<T>, `${'>' | '>=' | '<' | '<='}:`, SK>						// >, >=, <, ≤ on non-array
+		& PrefixedProp<T, StringKeys<T>, `${'~~' | '~~*' | '!~~' | '!~~*' | '~' | '~*'}:`, SK>			// LIKE operators on string
+		& TSQueryProp<T, SK>		 																							// @@:tsquery
+		& { [k in `${SK["andGroup"]}:${string}`]? : TableWhere<T, SK>[]}										// nested AND
+
+
+
+/* =========================================================================
+   =  Final Type
+   ========================================================================= */
+	// TODO Should authorise grouped [] to allow OR from the very start
+	// TODO Should authorise : table
+	// TODO Should prefix string like in join '' to separate from autocompleted columns ?
+	// TODO Test
+
+	export type Where<
+		Env extends Environment,
+
+		SK extends SyntaxKeys 	
+	> = TableWhere<FlatEnv<Env>, SK>;
+
+
+
+
+
+
+
+/************************
+		PREPARED WHERE
+**************************/
+
+	// Generate tuple from referenced where value
+	// Might be good to generate an object with keys rather than tuple ?
+	// The idea was to be able to mention Where like keys which then create a tuple type to pass as a prepared function argument I guess.
+
+	type prefixString<S extends any, P extends string> = S extends string ? `${P}${S}` : never;
+
+	export type TablePreparedWhere<T extends Table> = Array<
+		keyof T
+		| prefixString<KeysOfType<Required<T>, Array<any>>, `[${'' | '!' | '=' | '<>' | '!=' | '>' | '>=' | '<' | '<='}]:`>
+		| prefixString<KeysOfType<Required<T>, Array<string>>, `[${'~~' | '~~*' | '!~~' | '!~~*'}]:`>
+		| prefixString<KeysOfType<Required<T>, Array<string>>, `@@:`>
+		| prefixString<KeysNotOfType<Required<T>, Array<any>>, `${'=' | '<>' | '!=' | '>' | '>=' | '<' | '<='}:`>
+		| prefixString<KeysOfType<Required<T>, string>, `${'~~' | '~~*' | '!~~' | '!~~*'}:`>
+		| Array<TablePreparedWhere<T>>
+	>
+
+	export type EnvironmentPreparedWhere<Env extends Environment> = TablePreparedWhere<FlatEnv<Env>>; 
+
+
+
+	export type ValuesFromTablePreparedWhere<T extends Table, A extends unknown[]> = A extends [] ? [] : A extends [infer E, ...infer R] ? 
+		(	E extends keyof T ? 
+			[T[E], ... ValuesFromTablePreparedWhere<T,R>] 
+			: 
+			(	E extends `${string}:${infer S}` ?
+					(S extends keyof T ?
+						[T[S], ...ValuesFromTablePreparedWhere<T, R>] 
+						: 
+						never
+					)
+					:
+					(E extends Array<unknown> ? 
+						[...ValuesFromTablePreparedWhere<T, E>, ...ValuesFromTablePreparedWhere<T, R>] 
+						: 
+						never
+					)
+			)
+		) 
+		: 
+		A;
+
+
+	export type ValuesFromEnvironmentPreparedWhere<Env extends Environment, A extends unknown[]> = ValuesFromTablePreparedWhere<FlatEnv<Env>, A>;
+	
+
+
+
+
+/* =========================================================================
+   =  UTILS
+   ========================================================================= */
 
 /**
  * Flatten an array of objects or an object as WHERE clause
@@ -427,83 +484,10 @@ export function whereToSQL(filter : Obj | Obj[], startdollar : number = 1, prefi
 	return {where, from, values, nextvar : i};
 }
 
-export function envWhereToWHEREClauses(filter : Obj | Obj[], startdollar : number = 1, encryptedColumns? : string[]) : {where : string, from : string, values : Array<any>, nextvar : number}{
-	let values : any[] = [];
-	let from = "";
-	let i = startdollar;
-
-	const flattenOR = (obj : any) => {
-		let tempWhere = '';
-
-		for(const o of obj){
-			const flattenedWhere = flatten(o);
-
-			if(!!flattenedWhere && flattenedWhere !== "")
-				tempWhere += `(${flattenedWhere}) OR `
-		}
-
-		if(tempWhere !== "")
-			tempWhere = `( ${tempWhere.slice(0,-4)} )`;
-
-		return tempWhere;
-	}
-
-	const flatten = (obj : any) => {
-		let tempWhere = '';
-
-		for(const prop in obj){
-			if(obj[prop] === undefined || Object.keys(obj[prop]).length < 1)
-				continue;
-
-			const andRegex = /^&&.*/;
-
-			if(andRegex.exec(prop) !== null && Array.isArray(obj[prop])){
-				const flattenedWhere = flattenOR(obj[prop]);
-				if(!!flattenedWhere && flattenedWhere !== "")
-					tempWhere += `${flattenedWhere} AND `
-			}
-			else{
-				const whereflt = toWHEREClauses(obj[prop], i, prop, encryptedColumns);
-
-				if(!!whereflt.where && whereflt.where !== ""){
-					tempWhere += `${whereflt.where} AND `;
-					from += whereflt.from;
-					i = whereflt.nextvar;
-					values = [...values, ...whereflt.values];
-				}
-			}
-		}
-
-		if(tempWhere !== "")
-			tempWhere = tempWhere.slice(0,-4);
-
-		return tempWhere;
-	}
-
-	const flattened = Array.isArray(filter) ? flattenOR(filter) : flatten(filter);
-
-	return {where : flattened, from, values, nextvar : i}
-}
 
 
-export function toORDERBYClauses(data : Obj, prefix? : string) : string{
-	let orderby : string = "";
-	for(const prop in data){
-		if(typeof data[prop] === 'object'){
-			orderby += toORDERBYClauses(data[prop], prop) + ', ';
-		}
-		else {
-			if(data[prop] || data[prop] === 'ASC' || data[prop] === '' || data[prop] === 'DESC')
-				orderby += `${prefix && !prop.startsWith(prefix + '.') ? prefix + "." + prop : prop} ${data[prop]}, `;
-		}
-	}
-	orderby = orderby.slice(0,-2);
 
-	return orderby;
-}
-
-
-export function mergeWHEREClausesAsAND(...where : (string|undefined)[]){
+export function mergeWHEREAsAND(...where : (string|undefined)[]){
 	let res = '';
 	for(const s of where){
 		if(s && s.replace(/\s/g, '').length > 0)
@@ -515,7 +499,7 @@ export function mergeWHEREClausesAsAND(...where : (string|undefined)[]){
 }
 
 
-export function mergeWHEREClausesAsOR(...where : (string | undefined)[]){
+export function mergeWHEREAsOR(...where : (string | undefined)[]){
 	let res = '';
 	for(const s of where){
 		if(s && s.replace(/\s/g, '').length > 0)
@@ -527,35 +511,22 @@ export function mergeWHEREClausesAsOR(...where : (string | undefined)[]){
 }
 
 
-export function mergeSELECTClauses(...select : (string|undefined)[]){
-	let res = '';
-	for(const s of select){
-		if(s && s.replace(/\s/g, '').length > 0)
-			res += s + ', '
+
+///
+// TESTS
+///
+
+type ENV = {
+	table1 : {
+		a1 : string;
+		b1 : number;
+		c1 : number[];
+	},
+	table2 : {
+		a2 : string;
+		b2 : number;
+	},
+	table4 : {
+		a4 : number;
 	}
-	return res.slice(0, -2);
-}
-
-
-
-
-export function joinToSQL<Env extends Environment>(join : JoinOld<Env> | undefined){
-	if(!join)
-		return '';
-
-	let res = '';
-	for(let key in join){
-		const [type, target] = key.includes(':') ? key.split(':') : ['l', key];
-
-		if(type === 'i')
-			res = 'INNER JOIN ';
-		else if(type === 'f')
-			res = 'FULL JOIN ';
-		else if(type === 'r')
-			res = 'RIGHT JOIN ';
-		else
-			res = 'LEFT JOIN ';
-		
-		res += target;
-	}
-}
+};

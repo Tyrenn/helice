@@ -1,11 +1,4 @@
-/// DEFINE SYNTAX KEYS ?
-// # i# f# l# r#   =>  join
-// @					 =>  alias
-// :					 =>  operator separator
-// {}				 	 =>  json build object
-// []				 	 =>  agg
-// &&					 =>  AND group
-// @@					 =>  TSQuery
+
 
 
 
@@ -116,6 +109,44 @@ export type FlatEnv<
 
 export type TablesWithType<Env extends Environment, Type extends any> = 
 	{ [Table in keyof Env] : Type extends Env[Table][keyof Env[Table]] ? Table : never}[keyof Env];
+
+
+
+/**
+ * 
+ */
+ 
+export type MethodResultType<NewType extends any, ThisType extends any, O extends string> = Omit<Pick<NewType, keyof ThisType & keyof NewType>, O>
+
+
+
+
+
+/**
+ * Type for Query Preparation
+ */
+
+export type PreparedQueryOptions<Obj extends Record<any, any>> = {[key in keyof Obj]? : boolean}
+
+type PreparedQueryOptionsIsAllFalseOrUndefined<Obj extends Record<any, any>> = {[ k in keyof Obj] : PreparedQueryOptions<Obj>[k] extends true ? k : never}[keyof Obj] extends never ? true : false;
+
+export type PreparedQueryArguments<Options extends Record<any, any>> = 
+	PreparedQueryOptionsIsAllFalseOrUndefined<Options> extends true ? undefined : 
+	Simplify<
+		{
+			[k in keyof Options as PreparedQueryOptions<Options>[k] extends true ? k : never]? : Options[k];
+		}
+	>;
+
+
+
+/**
+ * 
+ */
+export interface CommonTableExpression<TableResult extends Table, SpectificPreparedQueryArguments extends Obj>{
+	prepare<A extends SpectificPreparedQueryArguments>(options? : PreparedQueryOptions<A>) : (args : PreparedQueryArguments<A>) => {query : string, args : any[]};
+}
+
 
 
 
