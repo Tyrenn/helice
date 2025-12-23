@@ -1,6 +1,6 @@
 import { Field, FieldHasDuplicateAliases, TableFromField } from "./clauses/field";
 import { EnvironmentFromJoin, Join, JoinHasDuplicateAliases } from "./clauses/join";
-import { mergeWHEREAsAND, Where, whereToSQL } from "./clauses/where";
+import { mergeWHEREAsAND, Where, oldwhereToSQL } from "./clauses/where";
 import { DefaultSyntaxKeys, SyntaxKeys } from "./syntaxkeys";
 import { CommonTableExpression, Environment, MethodResultType, PreparedQueryArguments, PreparedQueryOptions, Table } from "./types";
 

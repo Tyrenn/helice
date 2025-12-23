@@ -1,7 +1,3 @@
-
-
-
-
 /// GLOBAL
 
 export type AllowedColumnTypes = null | number | string | boolean | object;
@@ -14,7 +10,7 @@ export type Obj = {[key : string] : any};
 
 
 /**
- * 
+ *
  */
 export type StrKeys<T> = Extract<keyof T, string>;
 
@@ -46,13 +42,13 @@ export type FlatArray<A extends unknown[]> = A extends [] ? [] : A extends [infe
 
 
 /**
- * Extract T keys if T[keys] type is FV 
+ * Extract T keys if T[keys] type is FV
  */
 export type KeysOfType<Table, KeyType extends any> = { [k in keyof Table] : Table[k] extends KeyType ? k : never; }[keyof Table];
 
 
 /**
- * Extract T keys if T[keys] type is not FV 
+ * Extract T keys if T[keys] type is not FV
  */
 export type KeysNotOfType<Table, KeyType extends any> = { [k in keyof Table] : Table[k] extends KeyType ? never : k }[keyof Table]
 
@@ -90,32 +86,32 @@ If OnlyOneTable is given, then the type consider than only this one table is acc
 This is useful for queries without joins.
 Only refer one table name in OnlyOneTable.
 
-OnlyOneTable basically change the whole type, in another project it would have been another type completely. 
+OnlyOneTable basically change the whole type, in another project it would have been another type completely.
 But its presence here drastically reduce complexity as this type is used everywhere other types would need to know there is only one table accessible.
 
  */
 export type FlatEnvKeys<
   Env extends Environment,
   OnlyOneTable extends keyof Env | undefined = undefined,
-> = 
+> =
 	OnlyOneTable extends keyof Env ? (keyof Env[OnlyOneTable]) : ( {[T in StrKeys<Env>]: `${T}.${StrKeys<Env[T]>}` }[StrKeys<Env>])
 
 export type FlatEnv<
 	Env extends Environment,
  	OnlyOneTable extends keyof Env | undefined = undefined,
-> = 
+> =
 	{ [K in FlatEnvKeys<Env, OnlyOneTable>]: 		K extends `${infer T}.${infer C}` ? (Env[T & keyof Env][C & keyof Env[T & keyof Env]]) : (Env[OnlyOneTable & keyof Env][K & keyof Env[OnlyOneTable & keyof Env]]) };
 	// Checking OnlyOneTable is not done at root, even tough it would simplify the type, because this form allows TS to know that FlatEnvKeys are keyof FlatEnv
 
-export type TablesWithType<Env extends Environment, Type extends any> = 
+export type TablesWithType<Env extends Environment, Type extends any> =
 	{ [Table in keyof Env] : Type extends Env[Table][keyof Env[Table]] ? Table : never}[keyof Env];
 
 
 
 /**
- * 
+ *
  */
- 
+
 export type MethodResultType<NewType extends any, ThisType extends any, O extends string> = Omit<Pick<NewType, keyof ThisType & keyof NewType>, O>
 
 
@@ -130,8 +126,8 @@ export type PreparedQueryOptions<Obj extends Record<any, any>> = {[key in keyof 
 
 type PreparedQueryOptionsIsAllFalseOrUndefined<Obj extends Record<any, any>> = {[ k in keyof Obj] : PreparedQueryOptions<Obj>[k] extends true ? k : never}[keyof Obj] extends never ? true : false;
 
-export type PreparedQueryArguments<Options extends Record<any, any>> = 
-	PreparedQueryOptionsIsAllFalseOrUndefined<Options> extends true ? undefined : 
+export type PreparedQueryArguments<Options extends Record<any, any>> =
+	PreparedQueryOptionsIsAllFalseOrUndefined<Options> extends true ? undefined :
 	Simplify<
 		{
 			[k in keyof Options as PreparedQueryOptions<Options>[k] extends true ? k : never]? : Options[k];
@@ -141,7 +137,7 @@ export type PreparedQueryArguments<Options extends Record<any, any>> =
 
 
 /**
- * 
+ *
  */
 export interface CommonTableExpression<TableResult extends Table, SpectificPreparedQueryArguments extends Obj>{
 	prepare<A extends SpectificPreparedQueryArguments>(options? : PreparedQueryOptions<A>) : (args : PreparedQueryArguments<A>) => {query : string, args : any[]};
@@ -155,8 +151,8 @@ export interface CommonTableExpression<TableResult extends Table, SpectificPrepa
 ///
 
 /*
-	Hacky things from 
-	https://stackoverflow.com/questions/52855145/typescript-object-type-to-array-type-tuple 
+	Hacky things from
+	https://stackoverflow.com/questions/52855145/typescript-object-type-to-array-type-tuple
 	https://stackoverflow.com/questions/55127004/how-to-transform-union-type-to-tuple-type/55128956#55128956
 */
 export type UnionToIntersection<U> =

@@ -31,10 +31,9 @@ type TestEnv = {
 
 let t3 = new Helice<TestEnv, VerboseSyntaxKeys>()
 	.select('table1').join({
-		table1 : "column1 JOIN table1.column1",
-		table2 : {
-			"JOIN" : "inner",
-		}
+		table2 : { "<=:column22" : "table1.column1"}
+	}).field({
+		"table2.column21" : "ezfzef"
 	})
 
 

@@ -5,7 +5,7 @@ import { DefaultSyntaxKeys, SyntaxKeys } from '../syntaxkeys';
 /****************
 		WHERE
 
-	Where : 
+	Where :
 	{
 		table1.column1 : value,
 		"<:table1.column1" : value,
@@ -41,14 +41,14 @@ import { DefaultSyntaxKeys, SyntaxKeys } from '../syntaxkeys';
 }
 
 Will translate in :
-	a = "a" 
-	AND 
+	a = "a"
+	AND
 	(
-			(b = "b2" AND a = "a2") 
-		OR (b = "b1" AND a = "a1") 
-		OR (b = "b3" AND 
+			(b = "b2" AND a = "a2")
+		OR (b = "b1" AND a = "a1")
+		OR (b = "b3" AND
 				(
-						(c = "c1" AND d = "d1") 
+						(c = "c1" AND d = "d1")
 					OR (c = "c2" AND d = "d2")
 				)
 			)
@@ -82,20 +82,20 @@ Will translate in :
 
 	// { [prefixcolumn] : Accepte tout}
 	type PrefixedProp<
-		T extends Table, 
-		K extends keyof T, 
+		T extends Table,
+		K extends keyof T,
 		P extends string,
-	
-		SK extends SyntaxKeys 
+
+		SK extends SyntaxKeys
 	> = {	[k in K & string as `${P}${k}`]? : Arrayed<T[k] | null> |  TableWhere<T, SK>[] | KeysOfType<T, T[k]>; };
 
 	// { [prefixcolumn] : Accepte tout sauf les []}
 	type PrefixedPropNonArray<
-		T extends Table, 
-		K extends keyof T, 
+		T extends Table,
+		K extends keyof T,
 		P extends string,
 
-		SK extends SyntaxKeys 
+		SK extends SyntaxKeys
 	> = { [k in K & string as `${P}${k}`]? : T[k] | null |  TableWhere<T, SK>[] | KeysOfType<T, T[k]>; };
 
 
@@ -110,8 +110,8 @@ Will translate in :
 	}
 
 	type TSQueryProp<
-		T, 
-		SK extends SyntaxKeys 
+		T,
+		SK extends SyntaxKeys
 	> = {
 		[K in StringArrayKeys<T> & string as `${SK["tsquery"]}:${K}`]?: TSQuery;
 	}
@@ -121,8 +121,8 @@ Will translate in :
 	/** --------- Base Properties ------------- */
 	type BaseProp<
 		T extends Table,
-		
-		SK extends SyntaxKeys 
+
+		SK extends SyntaxKeys
 	> = {
 		[k in keyof T]? : Arrayed<T[k] | null> | TableWhere<T, SK>[];
 	}
@@ -131,9 +131,9 @@ Will translate in :
 	type TableWhere<
 		T extends Table,
 
-		SK extends SyntaxKeys 
-	> = 
-		BaseProp<T, SK> 
+		SK extends SyntaxKeys
+	> =
+		BaseProp<T, SK>
 		& PrefixedProp<T, ArrayKeys<T>, `[${'' | '=' | '!' | '<>' | '!='}]:`, SK>							// arrays operators [=],[!],[]… on arrays
 		& PrefixedProp<T, StringArrayKeys<T>, `[${'~~' | '~~*' | '!~~' | '!~~*'}]:`, SK>					// LIKE operators on string[]
 		& PrefixedProp<T, NonArrayKeys<T>, `${'=' | '<>' | '!='}:`, SK>										// =, != on non-array
@@ -155,7 +155,7 @@ Will translate in :
 	export type Where<
 		Env extends Environment,
 
-		SK extends SyntaxKeys 	
+		SK extends SyntaxKeys
 	> = TableWhere<FlatEnv<Env>, SK>;
 
 
@@ -184,34 +184,34 @@ Will translate in :
 		| Array<TablePreparedWhere<T>>
 	>
 
-	export type EnvironmentPreparedWhere<Env extends Environment> = TablePreparedWhere<FlatEnv<Env>>; 
+	export type EnvironmentPreparedWhere<Env extends Environment> = TablePreparedWhere<FlatEnv<Env>>;
 
 
 
-	export type ValuesFromTablePreparedWhere<T extends Table, A extends unknown[]> = A extends [] ? [] : A extends [infer E, ...infer R] ? 
-		(	E extends keyof T ? 
-			[T[E], ... ValuesFromTablePreparedWhere<T,R>] 
-			: 
+	export type ValuesFromTablePreparedWhere<T extends Table, A extends unknown[]> = A extends [] ? [] : A extends [infer E, ...infer R] ?
+		(	E extends keyof T ?
+			[T[E], ... ValuesFromTablePreparedWhere<T,R>]
+			:
 			(	E extends `${string}:${infer S}` ?
 					(S extends keyof T ?
-						[T[S], ...ValuesFromTablePreparedWhere<T, R>] 
-						: 
+						[T[S], ...ValuesFromTablePreparedWhere<T, R>]
+						:
 						never
 					)
 					:
-					(E extends Array<unknown> ? 
-						[...ValuesFromTablePreparedWhere<T, E>, ...ValuesFromTablePreparedWhere<T, R>] 
-						: 
+					(E extends Array<unknown> ?
+						[...ValuesFromTablePreparedWhere<T, E>, ...ValuesFromTablePreparedWhere<T, R>]
+						:
 						never
 					)
 			)
-		) 
-		: 
+		)
+		:
 		A;
 
 
 	export type ValuesFromEnvironmentPreparedWhere<Env extends Environment, A extends unknown[]> = ValuesFromTablePreparedWhere<FlatEnv<Env>, A>;
-	
+
 
 
 
@@ -219,6 +219,216 @@ Will translate in :
 /* =========================================================================
    =  UTILS
    ========================================================================= */
+
+
+
+
+class WhereSQLResult{
+	where: string = '';
+	from: string = '';
+	dollarIdx: number = 1;
+
+	values: any[] = [];
+
+	constructor(dollarIdx : number = 1){
+		this.dollarIdx = dollarIdx;
+	}
+
+	pushValue(v : any) : string{
+		this.values.push(v);
+		return `${this.dollarIdx++}`;
+	}
+}
+
+
+
+   /**
+	 * Transforms sign:prop and prop
+		=:i : 1 				=> 		i = 1
+		<>:i : null 		=> 		i is not NULL
+		i : 2					=> 		i = 2
+		<:i : 2				=> 		i = 2
+		i : [1,2]			=> 		i = ANY([1,2])
+		i : [1, null]		=>			(i is NULL OR i = ANY([1]))
+		<>:i : [1, null]	=>			(i is not NULL AND i <> ALL([1]))
+		~~*:i : "test"		=>			i ~~* "test"
+		~~:i : [1, null]	=>			(i is NULL OR i ~~ array_to_string([1], ' '))
+	 */
+function whereValueToSQL(key : string, value : any, result : WhereSQLResult){
+	const keyRgx = new RegExp(
+		String.raw`^(?:(?<op>[^:]*)]:)(?<name>.+)$`	// Match `op:name` and `name`
+	);
+	const match = key.match(keyRgx);
+
+	if (!match || !match.groups?.name)
+		return;
+
+	if (!match.groups.op || match.groups.op === '=')
+		if (value === null)
+			return result.where += `${match.groups.name} IS NULL`;
+		else if (!Array.isArray(value))
+			return result.where += `${match.groups.name} = $${result.pushValue(value)}`;
+		else if (value.length == 1)
+			return result.where += `${match.groups.name} = $${result.pushValue(value[0])}`;
+		else
+			return result.where += value.includes(null) ? `( ${match.groups.name} IS NULL OR ${match.groups.name} = ANY($${result.pushValue(value[0])}) )` : `${match.groups.name} = ANY($${result.pushValue(value[0])})`;
+
+	else if(['<>', "!="].includes(match.groups.op))
+		if (value === null)
+			return result.where += `${match.groups.name} IS NOT NULL`;
+		else if (!Array.isArray(value))
+			return result.where += `${match.groups.name} <> $${result.pushValue(value)}`;
+		else if (value.length == 1)
+			return result.where += `${match.groups.name} <> $${result.pushValue(value[0])}`;
+		else
+			return result.where += value.includes(null) ? `( ${match.groups.name} IS NOT NULL AND ${match.groups.name} <> ALL($${result.pushValue(value[0])}) )` : `${match.groups.name} <> ALL($${result.pushValue(value[0])})`;
+
+	else if(["~~", "~~*", "!~~", "!~~*"].includes(match.groups.op))
+		if (value === null)
+			return result.where += `${match.groups.name} IS NOT NULL`;
+		else if (!Array.isArray(value))
+			return result.where += `${match.groups.name} ${match.groups.op} $${result.pushValue(value)}`;
+		else if (value.length == 1)
+			return result.where += `${match.groups.name} ${match.groups.op} $${result.pushValue(value[0])}`;
+		else
+			return result.where += value.includes(null) ? `( ${match.groups.name} IS NOT NULL OR ${match.groups.name} ${match.groups.op} ANY($${result.pushValue(value[0])}) )` : `${match.groups.name} ${match.groups.op} ANY($${result.pushValue(value[0])})`;
+
+	else
+		if (value === null)
+			return result.where += `${match.groups.name} IS NOT NULL`;
+		else if (!Array.isArray(value))
+			return result.where += `${match.groups.name} ${match.groups.op} $${result.pushValue(value)}`;
+		else if (value.length == 1)
+			return result.where += `${match.groups.name} ${match.groups.op} $${result.pushValue(value[0])}`;
+		else
+			return result.where += value.includes(null) ? `( ${match.groups.name} IS NOT NULL AND ${match.groups.name} ${match.groups.op} ALL($${result.pushValue(value[0])}) )` : `${match.groups.name} ${match.groups.op} ALL($${result.pushValue(value[0])})`;
+	}
+
+
+/**
+ * Transforms [] props
+	[]:arr : [1, 2] 			=> 	arr = [1,2]
+	[!]:arr :	[1, 2] 		=> 	arr <> [1,2]
+	[=]:arr : [1,2]  			=>  	(1 = ANY(arr) OR 2 = ANY(arr))
+	[=]:arr : 1 				=> 	1 = ANY(arr)
+	[<>]:arr : [1,2] 			=> 	(1 <> ALL(arr) OR 2 <> ALL(arr))
+	[<>]:arr : 1 				=> 	1 <> ALL(arr)
+	[~~*]:arr : "test"		=>		"test" ~~* array_to_string(arr, ' ')
+	[~~]:arr : [1, 2, null]		=>		(i is NULL OR 1 ~~ array_to_string(arr, ' ') OR 2 ~~ array_to_string(arr, ' '))
+ */
+function arrayWhereValueToSQL(key : string, value : any, result : WhereSQLResult){
+	const keyRgx = new RegExp(
+		String.raw`^\[(?<op>[^:\]]*)]:(?<name>.+)$`	// Match `[op]:name`
+	);
+	const match = key.match(keyRgx);
+
+	if (!match || !match.groups?.op || !match.groups?.name)
+		return ''
+
+	// []:arr : [1, 2] => arr = [1,2]
+	if(match.groups.op === "")
+		return result.where += value === null ?  `${match.groups.name} is NULL` : `${match.groups?.name} = $${result.pushValue(value)}`;
+
+	//[!]:arr :	[1, 2] => arr != [1,2]
+	else if(match.groups.op === "")
+		return result.where += value === null ?  `${match.groups.name} is not NULL` : `${match.groups?.name} <> $${result.pushValue(value)}`;
+
+
+	// [=]:arr : 1 => 1 = ANY(arr)
+	// [=]:arr : [1] => 1 = ANY(arr)
+	// [=]:arr : [1,2] => (1 = ANY(arr) OR 2 = ANY(arr))
+	else if(match.groups.op === "="){
+		if (!Array.isArray(value))
+			return result.where += `$${result.pushValue(value)} = ANY(${match.groups.name})`;
+		else if(value.length == 1)
+			return result.where += `$${result.pushValue(value[0])} = ANY(${match.groups.name})`;
+		else
+			return result.where += `( $${value.filter(v => v !== null).map(v => `$${result.pushValue(v)} = ANY(${match.groups!.name}`).join(' OR ')} ${value.includes(null) ? `OR ${match.groups.name} IS NULL ` : ''})` ;
+	}
+
+	// [~~*]:arr : ["test"] => "test" ~~* array_to_string(arr, ' ')
+	// [!~~]:arr : 1 => (1 ~~ array_to_string(arr, ' ') OR 2 ~~ array_to_string(arr, ' '))
+	// [~~]:arr : [1,2, null] => (i is NULL OR 1 ~~ array_to_string(arr, ' ') OR 2 ~~ array_to_string(arr, ' '))
+	else if(["~~", "~~*", "!~~", "!~~*"].includes(match.groups.op)){
+		if(!Array.isArray(value))
+			return result.where += `array_to_string(${match.groups.name}, ' ') ${match.groups.op} $${result.pushValue(value)}`;
+		else if(value.length == 1)
+			return result.where += `array_to_string(${match.groups.name}, ' ') ${match.groups.op} $${result.pushValue(value[0])}`;
+		else
+			return result.where += `( ${value.filter(v => v !== null).map(v => `array_to_string(${match.groups!.name}, ' ') ${match.groups!.op} $${result.pushValue(v)}`).join(' OR ')} ${value.includes(null) ? `OR ${match.groups.name} IS NULL ` : ''} )`;
+	}
+
+	// [<>]:arr : 1 => 1 <> ALL(arr)
+	else{
+		if(!Array.isArray(value))
+			return result.where += `$${result.pushValue(value)} ${match.groups.op} ALL(${match.groups.name})`
+		else if(value.length == 1)
+			return result.where += `$${result.pushValue(value[0])} ${match.groups.op} ALL(${match.groups.name})`
+		else
+			return result.where += `( ${value.filter(v => v !== null).map(v => `$${result.pushValue(value[0])} ${match.groups!.op} ALL(${match.groups!.name})`).join(' AND ')} ${value.includes(null) ? `AND ${match.groups.name} IS NOT NULL ` : ''})`
+	}
+}
+
+
+function tsQueryValueToSQL(key : string, value : any, result : WhereSQLResult){
+	const keyRgx = new RegExp(
+		String.raw`^\[@@:(?<name>.+)$`	// Match `@@:name`
+	);
+	const match = key.match(keyRgx);
+
+	if (!match || !match.groups?.name)
+		return {};
+
+	result.from += `to_tsquery($${result.pushValue(value.language)}, $${result.pushValue(value.value)}) as ${match.groups.name.replace('.', '_')}_query, ts_rank_cd($${result.pushValue(value.weights ?? [0.1, 0.2, 0.4, 1.0])}, ${match.groups.name}, ${match.groups.name.replace('.', '_')}_query, ${value.flag ?? '32'}) AS ${match.groups.name.replace('.', '_')}_rank,`;
+	result.where += `${match.groups.name.replace('.', '_')}_query @@ ${match.groups.name}`;
+}
+
+
+function wheresToSQL(array : Array<Obj>, result : WhereSQLResult){
+	result.where += ' ( ';
+	let currentDollarIdx = result.dollarIdx;
+	for(const w of array){
+
+		if(result.dollarIdx > currentDollarIdx) // At least one statement has been added
+			result.where += ` OR `;
+
+		result.where += ' ( ';
+		whereToSQL(w, result)
+		result.where += ' ) ';
+		currentDollarIdx = result.dollarIdx;
+	}
+}
+
+
+export function whereToSQL(where: Obj | Obj[], result: WhereSQLResult = new WhereSQLResult(1)): WhereSQLResult {
+	if(Array.isArray(where)){
+		wheresToSQL(where, result);
+		return result;
+	}
+
+	for(const prop in where){
+		if(where[prop] === undefined)
+				continue;
+
+		if (prop.match(new RegExp(String.raw`^&&:.+`)) && Array.isArray(where[prop]))
+			wheresToSQL(where[prop], result);
+		else if (prop.match(new RegExp(String.raw`^&&:.+`)) && !Array.isArray(where[prop]))
+			whereToSQL(where[prop], result);
+		else if (prop.match(new RegExp(String.raw`^@@:.+`)))
+			tsQueryValueToSQL(prop, where[prop], result);
+		else if (prop.match(new RegExp(String.raw`^\[.*\]:.*`)))
+			arrayWhereValueToSQL(prop, where[prop], result);
+		else
+			whereValueToSQL(prop, where[prop], result);
+
+		result.where += ' AND ';
+	}
+	result.where = result.where.slice(0,-5);
+
+	return result;
+}
+
+
 
 /**
  * Flatten an array of objects or an object as WHERE clause
@@ -261,230 +471,6 @@ Will translate in :
 			nextvar: 17
 		}
 */
-export function whereToSQL(filter : Obj | Obj[], startdollar : number = 1, prefix? : string, encryptedColumns? : string[]) : {where : string, from : string, values : Array<any>, nextvar : number} {
-	let values : any = [];
-	let where = "";
-	let from = "";
-	let i = startdollar;
-
-	const dottedPrefix = prefix ? prefix + '.' : '';
-	const dashedPrefix = prefix ? prefix + '_' : '';
-
-	const pushValue = (val : any) => {
-		values.push(val);
-		return i++;
-	}
-
-	/**
-	 * Transforms [] props
-		[]:arr : [1, 2] 			=> 	arr = [1,2]
-		[!]:arr :	[1, 2] 		=> 	arr <> [1,2]
-		[=]:arr : [1,2]  			=>  	(1 = ANY(arr) OR 2 = ANY(arr))
-		[=]:arr : 1 				=> 	1 = ANY(arr)
-		[<>]:arr : [1,2] 			=> 	(1 <> ALL(arr) OR 2 <> ALL(arr))
-		[<>]:arr : 1 				=> 	1 <> ALL(arr)
-		[~~*]:arr : "test"		=>		"test" ~~* array_to_string(arr, ' ')
-		[~~]:arr : [1, 2, null]		=>		(i is NULL OR 1 ~~ array_to_string(arr, ' ') OR 2 ~~ array_to_string(arr, ' '))
-	 */
-	const flattenValForArrayProp = (prop : string, sign : string, val : any) => {
-		let decryptedProp;
-		const match = prop.match(/^(.*)\(([^)]*)\)(.*)/);
-		if(match && match.length > 3){
-			decryptedProp = `${match[1]}(${encryptedColumns?.includes(match[2]!) ? 'decrypt:' : ''}${dottedPrefix}${match[2]})${match[3]}`;
-		}
-		else{
-			decryptedProp = `${encryptedColumns?.includes(prop) ? 'decrypt:' : ''}${dottedPrefix}${prop}`;
-		}
-
-		// []:arr : [1, 2] => arr = [1,2]
-		if(sign === "")
-			where += (val === null ?  `${dottedPrefix}${prop} is NULL` : `${decryptedProp} = $${pushValue(val)}`);
-
-		//[!]:arr :	[1, 2] => arr != [1,2]
-		else if(sign === "!")
-			where += (val === null ? `${dottedPrefix}${prop} is not NULL` : `${decryptedProp} <> $${pushValue(val)}`);
-
-		// [=]:arr : 1 => 1 = ANY(arr)
-		// [<>]:arr : 1 => 1 <> ALL(arr)
-		else if(!Array.isArray(val)){
-			if(sign === "~~" || sign === "~~*" || sign === "!~~" || sign === "!~~*")
-				where += `array_to_string(${decryptedProp}, ' ') ${sign} $${pushValue(val)}`;
-			else if (sign === "" || sign === "=")
-				where += `$${pushValue(val)} ${sign} ANY(${decryptedProp})`;
-			else
-				where += `$${pushValue(val)} ${sign} ALL(${decryptedProp})`;
-		}
-
-		// [=]:arr : [1] => 1 = ANY(arr)
-		// [<>]:arr : [1] => 1 <> ALL(arr)
-		// [~~*]:arr : ["test"] => "test" ~~* array_to_string(arr, ' ')
-		else if(val.length == 1){
-			if(sign === "~~" || sign === "~~*" || sign === "!~~" || sign === "!~~*")
-				where += `array_to_string(${decryptedProp}, ' ') ${sign} $${pushValue(val[0])}`;
-			else if (sign === "" || sign === "=")
-				where += `$${pushValue(val[0])} ${sign} ANY(${decryptedProp})`;
-			else
-				where += `$${pushValue(val[0])} ${sign} ALL(${decryptedProp})`;
-		}
-
-		// [=]:arr : [1,2] => (1 = ANY(arr) OR 2 = ANY(arr))
-		// [<>]:arr : [1,2] => (1 <> ALL(arr) AND 2 <> ALL(arr))
-		// [~~]:arr : [1,2, null] => (i is NULL OR 1 ~~ array_to_string(arr, ' ') OR 2 ~~ array_to_string(arr, ' '))
-		else if(val.length > 0){
-			where += '( '
-			if(val.includes(null)){
-				val = val.filter(n => n !== null);
-				where += `${dottedPrefix}${prop} ${sign === "" || sign === '=' ? 'is NULL OR ' : "is not NULL AND "}`;
-			}
-			for(const v of val){
-				if(sign === "~~" || sign === "~~*" || sign === "!~~" || sign === "!~~*")
-					where += `array_to_string(${decryptedProp}, ' ') ${sign} $${pushValue(v)} OR `;
-				else if(sign === "" || sign === "=")
-					where += `$${pushValue(v)} ${sign} ANY(${decryptedProp}) OR `;
-				else
-					where += `$${pushValue(v)} ${sign} ALL(${decryptedProp}) AND `;
-			}
-			where = where.slice(0, -4);	// Removing ' OR '
-			where += ' )';
-		}
-	}
-
-	/**
-	 * Transforms sign:prop and prop
-		=:i : 1 				=> 		i = 1
-		<>:i : null 		=> 		i is not NULL
-		i : 2					=> 		i = 2
-		<:i : 2				=> 		i = 2
-		i : [1,2]			=> 		i = ANY([1,2])
-		i : [1, null]		=>			(i is NULL OR i = ANY([1]))
-		<>:i : [1, null]	=>			(i is not NULL AND i <> ALL([1]))
-		~~*:i : "test"		=>			i ~~* "test"
-		~~:i : [1, null]	=>			(i is NULL OR i ~~ array_to_string([1], ' '))
-		~*:i : "test"		=>			i ~* "test"
-		~:i : [1, null]	=>			(i is NULL OR i ~ array_to_string([1], ' '))
-	 */
-	const flattenValForProp = (prop : string, sign : string, val : any) => {
-		let decryptedProp;
-		const match = prop.match(/^(.*)\(([^)]*)\)(.*)/);
-		if(match && match.length > 3){
-			decryptedProp = `${match[1]}(${encryptedColumns?.includes(match[2]!) ? 'decrypt:' : ''}${dottedPrefix}${match[2]})${match[3]}`;
-		}
-		else{
-			decryptedProp = `${encryptedColumns?.includes(prop) ? 'decrypt:' : ''}${dottedPrefix}${prop}`;
-		}
-
-		if(val === null){
-			if(sign === '' || sign === '=')
-				sign = 'is';
-			if(sign === '!=' || sign === '<>')
-				sign = 'is not';
-			where += `${dottedPrefix}${prop} ${sign} NULL`;
-		}
-		else if(Array.isArray(val) && val.length > 1){
-			if(val.includes(null)){
-				val = val.filter(n => n !== null);
-				where += `(${dottedPrefix}${prop} ${sign === '' || sign === "=" ? 'is NULL OR' : 'is not NULL AND' } `
-				if(sign === "" || sign === "=")
-					where += `${decryptedProp} ${sign} ANY($${pushValue(val)})`;
-				else if(sign === '~~' || sign === '~~*' || sign === '!~~' || sign === '!~~*')
-					where += `array_to_string($${pushValue(val)}, ' ') ${sign} ${decryptedProp}`;
-				else
-					where += `${decryptedProp} ${sign} ALL($${pushValue(val)})`;
-				where += ')'
-			}
-
-			else if(sign === "" || sign === "=")
-				where += `${decryptedProp} ${sign} ANY($${pushValue(val)})`;
-			else if(sign === '~~' || sign === '~~*' || sign === '!~~' || sign === '!~~*' || sign === '~' || sign === '~*')
-				where += `array_to_string($${pushValue(val)}, ' ') ${sign} ${decryptedProp}`;
-			else	// Should be '<>'
-				where += `${decryptedProp} ${sign} ALL($${pushValue(val)})`;
-		}
-		else if(Array.isArray(val) && val.length > 0){
-			where += `${decryptedProp} ${sign} $${pushValue(val[0])}`;
-		}
-		else if(Array.isArray(val) && val.length == 0){
-			where += `${dottedPrefix}${prop} ${sign === '' || sign === "=" ? 'is NULL' : 'is not NULL' }`;
-		}
-		else{
-			where += `${decryptedProp} ${sign} $${pushValue(val)}`;
-		}
-	}
-
-	/**
-	 * Transforms @@:prop
-	 * tsqueryWhere =>
-	 * 	from : to_tsquery(language, value) as prefix_prop_query, ts_rank_cd(weights, prefix.prop, prefix_prop_query, flag) as prefix_prop_rank
-	 * @param prop
-	 * @param obj
-	 */
-	const flattenAAProp = (prop : string, obj : TSQuery) => {
-		from += `to_tsquery($${i++}, $${i++}) as ${dashedPrefix}${prop}_query, ts_rank_cd($${i++}, ${dottedPrefix}${prop},  ${dashedPrefix}${prop}_query, ${obj.flag ?? '32'}) AS ${dashedPrefix}${prop}_rank`;
-		where += `${dashedPrefix}${prop}_query @@ ${prop}`;
-		values.push(obj.language, obj.value, obj.weights ?? [0.1, 0.2, 0.4, 1.0]);
-	}
-
-	const flattenANDProp = (array : Array<Obj>) => {
-		where += ' (';
-		for(const o of array){
-			const flt = whereToSQL(o, i, prefix);
-			where += ` ( ${flt.where} ) OR`;
-			from += flt.from;
-			i = flt.nextvar;
-			values = [...values, ...flt.values];
-		}
-		where = where.slice(0, -2);
-		where += ')';
-	}
-
-	const flatten = (obj : any) => {
-		for(const prop in obj){
-			if(obj[prop] === undefined)
-				continue;
-			let execRes;
-
-			const andRegex = /^&&.*/;
-			const aaRegex = /^@@:(.*)/;
-			const arrRegex = /^\[(|!|=|<>|!=|~~|~~\*|!~~|!~~\*)\]:((?:[^()]+$)|.*\(([^)]*)\).*)/;
-			const singleRegex = /^(|=|<>|!=|>|>=|<|<=|~~|~~\*|!~~|!~~\*|~|~\*):((?:[^()]+$)|.*\(([^)]*)\).*)/;
-
-			if(andRegex.exec(prop) !== null && Array.isArray(obj[prop])){
-				flattenANDProp(obj[prop]);
-			}
-			else if((execRes = aaRegex.exec(prop)) !== null){
-				flattenAAProp(execRes[1]!, obj[prop]);
-			}
-			else if((execRes = arrRegex.exec(prop)) !== null){
-				flattenValForArrayProp(execRes[2]!, execRes[1]!, obj[execRes.length > 2 ? execRes[3] ?? prop : prop]);
-			}else if((execRes = singleRegex.exec(prop)) !== null){
-				flattenValForProp(execRes[2]!, execRes[1] === '' ? '=' : execRes[1]!, obj[execRes.length > 2 ? execRes[3] ?? prop : prop]);
-			}else{
-				flattenValForProp(prop, '=', obj[prop]);
-			}
-			where += ' AND ';
-		}
-		where = where.slice(0,-5);
-	}
-
-	if(Array.isArray(filter)){
-		for(const obj of filter){
-			if(i > startdollar)
-				where += ` OR `;
-			where += `(`;
-
-			flatten(obj);
-
-			where += ') '
-		}
-	}
-	else{
-		flatten(filter);
-	}
-
-	return {where, from, values, nextvar : i};
-}
-
-
 
 
 export function mergeWHEREAsAND(...where : (string|undefined)[]){
