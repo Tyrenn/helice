@@ -71,28 +71,33 @@ Will translate in :
 	type NumberArrayKeys<T> = KeysOfType<T, number[]>;
 
 
+	// TODO should I wrap all into a better syntax ? 
+	// TODO { [k in keyof TABLE & string as TABLE[k] extends TYPE ? `${PREFIX}${k}${SUFFIX}` : never]? : Arrayed<T[k] | null> |  TableWhere<T, SK>[] | KeysOfType<T, T[k]>;}
+	// TODO { [k in keyof TABLE & string as TABLE[k] extends TYPE ? `${PREFIX}${k}${SUFFIX}` : never]? : T[k] | null | TableWhere<T, SK>[] | KeysOfType<T, T[k]>;}
+	// TODO why do we have KeysOfType and TableWhere ? => Because we give a flat env.
+	// TODO should we remove TableWhere ? As conditional // AND are ensured through AND props
 
 	/** --------- WRAP Properties ------------- */
 
 	// { [prefixcolumn] : Anything}
-	type WrapProp<
+	type WrapKeyArrayedValue<
 		T extends Table,
 		K extends keyof T,
 		Prefix extends string,
 		Suffix extends string,
 
 		SK extends SyntaxKeys
-	> = {	[k in K & string as `${Prefix}${k}${Suffix}`]? : Arrayed<T[k] | null> |  TableWhere<T, SK>[] | KeysOfType<T, T[k]>; };
+	> = {	[k in K & string as `${Prefix}${k}${Suffix}`]? : Arrayed<T[k] | null> |  FlatEnvWhere<T, SK>[] | KeysOfType<T, T[k]>; };
 
 	// { [prefixcolumn] : Anything but array }
-	type WrapPropNotArrayed<
+	type WrapKeyNoArrayValue<
 		T extends Table,
 		K extends keyof T,
 		Prefix extends string,
 		Suffix extends string,
 
 		SK extends SyntaxKeys
-	> = { [k in K & string as `${Prefix}${k}${Suffix}`]? : T[k] | null |  TableWhere<T, SK>[] | KeysOfType<T, T[k]>; };
+	> = { [k in K & string as `${Prefix}${k}${Suffix}`]? : T[k] | null |  FlatEnvWhere<T, SK>[] | KeysOfType<T, T[k]>; };
 
 
 
@@ -120,25 +125,25 @@ Will translate in :
 
 		SK extends SyntaxKeys
 	> = {
-		[k in keyof T]? : Arrayed<T[k] | null> | TableWhere<T, SK>[];
+		[k in keyof T]? : Arrayed<T[k] | null> | FlatEnvWhere<T, SK>[];
 	}
 
 
 // TODO reflect on TODOs 
-	type TableWhere<
+	type FlatEnvWhere<
 		T extends Table,
 
 		SK extends SyntaxKeys
 	> =
 		BaseProp<T, SK>
-		& WrapProp<T, NonArrayKeys<T>, SK["equalityL"], SK["equalityR"], SK>									// =, != on non-array
-		& WrapProp<T, StringKeys<T>, SK['likeL'], SK['likeR'], SK>												// LIKE operators on string
-		& WrapProp<T, NumberKeys<T>, SK['compareL'], SK['compareR'], SK>										// >, >=, <, ≤ on non-array number
-		& WrapProp<T, ArrayKeys<T>, SK["arrayEqualityL"], SK["arrayEqualityR"], SK>						// arrays operators [=],[!],[]… on arrays => TODO yes but if array as value it is wierd... Like everything is = to everything ?
-		& WrapProp<T, StringArrayKeys<T>, SK["arrayLikeL"], SK["arrayLikeR"], SK>							// LIKE operators on string[]
-		& WrapProp<T, NumberArrayKeys<T>, SK['arrayCompareL'], SK['arrayCompareR'], SK>					// >, >=, <, ≤ on number[]	=> TODO yes but if array as value it is wierd... like everything is compared to everything ?
-		& TSQueryProp<T, SK>		 																							// @@:tsquery
-		& { [k in `${SK["andGroup"]}${string}`]? : TableWhere<T, SK>[]}										// nested AND
+		& WrapKeyArrayedValue<T, NonArrayKeys<T>, SK["equalityL"], SK["equalityR"], SK>									// =, != on non-array
+		& WrapKeyArrayedValue<T, StringKeys<T>, SK['likeL'], SK['likeR'], SK>												// LIKE operators on string
+		& WrapKeyArrayedValue<T, NumberKeys<T>, SK['compareL'], SK['compareR'], SK>										// >, >=, <, ≤ on non-array number
+		& WrapKeyArrayedValue<T, ArrayKeys<T>, SK["arrayEqualityL"], SK["arrayEqualityR"], SK>							// arrays operators [=],[!],[]… on arrays => TODO yes but if array as value it is wierd... Like everything is = to everything ?
+		& WrapKeyArrayedValue<T, StringArrayKeys<T>, SK["arrayLikeL"], SK["arrayLikeR"], SK>							// LIKE operators on string[]
+		& WrapKeyArrayedValue<T, NumberArrayKeys<T>, SK['arrayCompareL'], SK['arrayCompareR'], SK>					// >, >=, <, ≤ on number[]	=> TODO yes but if array as value it is wierd... like everything is compared to everything ?
+		& TSQueryProp<T, SK>		 																											// @@:tsquery
+		& { [k in `${SK["andGroup"]}${string}`]? : FlatEnvWhere<T, SK>[]}														// nested AND
 
 
 
@@ -154,7 +159,7 @@ Will translate in :
 		Env extends Environment,
 
 		SK extends SyntaxKeys
-	> = TableWhere<FlatEnv<Env>, SK>;
+	> = FlatEnvWhere<FlatEnv<Env>, SK>;
 
 
 

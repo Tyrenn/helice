@@ -84,6 +84,7 @@ import { DefaultSyntaxKeys, SyntaxKeys, SyntaxKeysConstant, VerboseSyntaxKeys } 
 	*/
 	// TODO Add the possibility to join from string column to string[] (ANY operation)
 	// TODO Add the possibility to join from number column to number[] (ANY operation)
+	// TODO Add AND ?
 	type JoinObjectValue<
 		Env extends Environment,
 		AccessibleTables extends string,

@@ -33,7 +33,11 @@ let t3 = new Helice<TestEnv, VerboseSyntaxKeys>()
 	.select('table1').join({
 		table2 : { 
 			"column22 =" : "table1.column1",
-			"column22 !~~": "table1.column3"
+			"column22 !~~": "table1.column3",
+			"column22 !~~*": "eee",
+			"AND eee": {
+				
+			}
 		
 		}
 	}).field({
