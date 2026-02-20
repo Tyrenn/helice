@@ -177,6 +177,7 @@ export type JoinHasDuplicateAliases<
 
 
 // TODO IN CASE VALUE ?!
+// Give 
 
 function stringJoinToSQL(sk : SyntaxKeys, target : string, value : string, alias? : string){
 	if(alias && alias === '')
