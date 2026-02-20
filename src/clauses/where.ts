@@ -72,15 +72,7 @@ Will translate in :
 
 
 
-	/** --------- Prefix Properties ------------- */
-
-	// type prefixPropWhereWithArray<T extends Table, P extends string> = {
-	// 	[k in keyof T as k extends string ? `${P}${k}` : never]? : Arrayed<T[k] | null> |  TableWhere<T>[];
-	// }
-
-	// type prefixPropWhereWithoutArray<T extends Table, P extends string> = {
-	// 	[k in keyof T as k extends string ? `${P}${k}` : never]? : UnArraying<T[k] | null> |  TableWhere<T>[];
-	// }
+	/** --------- WRAP Properties ------------- */
 
 	// { [prefixcolumn] : Anything}
 	type WrapProp<
@@ -132,6 +124,7 @@ Will translate in :
 	}
 
 
+// TODO reflect on TODOs 
 	type TableWhere<
 		T extends Table,
 
@@ -141,9 +134,9 @@ Will translate in :
 		& WrapProp<T, NonArrayKeys<T>, SK["equalityL"], SK["equalityR"], SK>									// =, != on non-array
 		& WrapProp<T, StringKeys<T>, SK['likeL'], SK['likeR'], SK>												// LIKE operators on string
 		& WrapProp<T, NumberKeys<T>, SK['compareL'], SK['compareR'], SK>										// >, >=, <, ≤ on non-array number
-		& WrapProp<T, ArrayKeys<T>, SK["arrayEqualityL"], SK["arrayEqualityR"], SK>						// arrays operators [=],[!],[]… on arrays
+		& WrapProp<T, ArrayKeys<T>, SK["arrayEqualityL"], SK["arrayEqualityR"], SK>						// arrays operators [=],[!],[]… on arrays => TODO yes but if array as value it is wierd... Like everything is = to everything ?
 		& WrapProp<T, StringArrayKeys<T>, SK["arrayLikeL"], SK["arrayLikeR"], SK>							// LIKE operators on string[]
-		& WrapProp<T, NumberArrayKeys<T>, SK['arrayCompareL'], SK['arrayCompareR'], SK>					// >, >=, <, ≤ on number[]
+		& WrapProp<T, NumberArrayKeys<T>, SK['arrayCompareL'], SK['arrayCompareR'], SK>					// >, >=, <, ≤ on number[]	=> TODO yes but if array as value it is wierd... like everything is compared to everything ?
 		& TSQueryProp<T, SK>		 																							// @@:tsquery
 		& { [k in `${SK["andGroup"]}${string}`]? : TableWhere<T, SK>[]}										// nested AND
 

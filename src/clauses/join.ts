@@ -1,5 +1,5 @@
-import { Environment, FlatEnv, KeysOfType, Obj, Prettify, Simplify, StrKeys, Table, TablesWithType} from "../types";
-import { DefaultSyntaxKeys, SyntaxKeys, VerboseSyntaxKeys } from "../syntaxkeys";
+import { Environment, FlatEnv, KeysNotOfType, KeysOfType, Obj, Prettify, Simplify, StrKeys, Table, TablesWithType} from "../types";
+import { DefaultSyntaxKeys, SyntaxKeys, SyntaxKeysConstant, VerboseSyntaxKeys } from "../syntaxkeys";
 
 /****************
 		JOIN
@@ -54,6 +54,7 @@ import { DefaultSyntaxKeys, SyntaxKeys, VerboseSyntaxKeys } from "../syntaxkeys"
    =  Grammar
    ========================================================================= */
 
+
 	/** --------- Join String Value -------------
 		"tableX" : BaseJoinValue
 	*/
@@ -91,9 +92,9 @@ import { DefaultSyntaxKeys, SyntaxKeys, VerboseSyntaxKeys } from "../syntaxkeys"
 		SK extends SyntaxKeys = DefaultSyntaxKeys
 	> =
 			{ [l in SK["join"] as l extends `${infer j}` ? j : never]? : "inner" | "left" | "right" | "full"}
-		&	{ [k in StrKeys<Env[TargetTable]> as Env[TargetTable][k] extends (string | number | boolean) ? `${'' | SK["equalityL"]}${k}${'' | SK["equalityR"]}` : never]? : SameTypeColumns<Env, AccessibleTables, TargetTable, k> | (Env[TargetTable][k] extends string ? (string & {}) : Env[TargetTable][k]) | null }
-		&	{ [k in StrKeys<Env[TargetTable]> as Env[TargetTable][k] extends (number) ? `${SK["compareL"]}${k}${SK["compareR"]}` : never]? : SameTypeColumns<Env, AccessibleTables, TargetTable, k> | (Env[TargetTable][k] extends string ? (string & {}) : Env[TargetTable][k]) | null }
-		&	{ [k in StrKeys<Env[TargetTable]> as Env[TargetTable][k] extends (string) ? `${SK["likeL"]}${k}${SK["likeR"]}` : never]? : SameTypeColumns<Env, AccessibleTables, TargetTable, k> | (string & {}) | null}
+		&	{ [k in StrKeys<Env[TargetTable]> as Env[TargetTable][k] extends (string | number | boolean) ? `${'' | SK["equalityL"]}${k}${'' | SK["equalityR"]}` : never]? : SameTypeColumns<Env, AccessibleTables, TargetTable, k> | (Env[TargetTable][k] extends string ? (Env[TargetTable][k] & (string & {})) : Env[TargetTable][k]) | null }
+		&	{ [k in StrKeys<Env[TargetTable]> as Env[TargetTable][k] extends (number) ? `${SK["compareL"]}${k}${SK["compareR"]}` : never]? : SameTypeColumns<Env, AccessibleTables, TargetTable, k> | number | number[] | null }
+		&	{ [k in StrKeys<Env[TargetTable]> as Env[TargetTable][k] extends (string) ? `${SK["likeL"]}${k}${SK["likeR"]}` : never]? : SameTypeColumns<Env, AccessibleTables, TargetTable, k> | string | string[] | null}
 
 
 /* =========================================================================
@@ -180,7 +181,7 @@ export type JoinHasDuplicateAliases<
 // TODO IN CASE VALUE ?!
 // Give 
 
-function stringJoinToSQL(sk : SyntaxKeys, target : string, value : string, alias? : string){
+function stringJoinToSQL(sk : SyntaxKeysConstant, target : string, value : string, alias? : string){
 	if(alias && alias === '')
 		alias = undefined;
 
@@ -209,7 +210,7 @@ function stringJoinToSQL(sk : SyntaxKeys, target : string, value : string, alias
 	else '';
 }
 
-function objectJoinToSQL(sk : SyntaxKeys, target : string, value : Obj, alias? : string){
+function objectJoinToSQL(sk : SyntaxKeysConstant, target : string, value : Obj, alias? : string){
 	if(alias && alias === '')
 		alias = undefined;
 
@@ -302,6 +303,7 @@ const jTest : Join<TestEnv, Pick<TestEnv, "table1">, VerboseSyntaxKeys> = {
 	"table2 AS eee" : "column21 FULL JOIN table1.column2",
 	"table2 AS efzez" : {
 		"JOIN" : "full",
-		column21 : 4
+		column21 : 4,
+		"column21 <=": [5, 6],
 	}
 } as const;
