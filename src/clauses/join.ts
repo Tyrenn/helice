@@ -91,8 +91,9 @@ import { DefaultSyntaxKeys, SyntaxKeys, VerboseSyntaxKeys } from "../syntaxkeys"
 		SK extends SyntaxKeys = DefaultSyntaxKeys
 	> =
 			{ [l in SK["join"] as l extends `${infer j}` ? j : never]? : "inner" | "left" | "right" | "full"}
-		&	{ [k in StrKeys<Env[TargetTable]> as Env[TargetTable][k] extends (string | number | boolean) ? `${'' | `${'<' | '>' | '<=' | '>=' | '<>' | '!='}${SK["separator"]}`}${k}` : never]? : SameTypeColumns<Env, AccessibleTables, TargetTable, k> | (Env[TargetTable][k] extends string ? (string & {}) : Env[TargetTable][k]) | null }
-		&	{ [k in StrKeys<Env[TargetTable]> as Env[TargetTable][k] extends (string) ? `${'~~' | '~~*' | '!~~' | '!~~*' | '~' | '~*'}${SK["separator"]}${k}` : never]? : SameTypeColumns<Env, AccessibleTables, TargetTable, k> | (string & {}) | null}
+		&	{ [k in StrKeys<Env[TargetTable]> as Env[TargetTable][k] extends (string | number | boolean) ? `${'' | SK["equalityL"]}${k}${'' | SK["equalityR"]}` : never]? : SameTypeColumns<Env, AccessibleTables, TargetTable, k> | (Env[TargetTable][k] extends string ? (string & {}) : Env[TargetTable][k]) | null }
+		&	{ [k in StrKeys<Env[TargetTable]> as Env[TargetTable][k] extends (number) ? `${SK["compareL"]}${k}${SK["compareR"]}` : never]? : SameTypeColumns<Env, AccessibleTables, TargetTable, k> | (Env[TargetTable][k] extends string ? (string & {}) : Env[TargetTable][k]) | null }
+		&	{ [k in StrKeys<Env[TargetTable]> as Env[TargetTable][k] extends (string) ? `${SK["likeL"]}${k}${SK["likeR"]}` : never]? : SameTypeColumns<Env, AccessibleTables, TargetTable, k> | (string & {}) | null}
 
 
 /* =========================================================================
@@ -295,7 +296,6 @@ type TestEnv = {
 const tgee : Simplify<JoinObjectValue<TestEnv, "table1", "table2">> = {
 	column21 : "table1.column2",
 	"#" : "left",
-	 : ["dazdz", "ffezf"],
 }
 
 const jTest : Join<TestEnv, Pick<TestEnv, "table1">, VerboseSyntaxKeys> = {

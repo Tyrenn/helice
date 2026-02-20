@@ -168,9 +168,9 @@ The raw sql statement must be a string but can be the result of a function ! As 
 		SK extends SyntaxKeys = DefaultSyntaxKeys 
 	> = 
 			{ [K in FlatEnvKeys<Env, OnlyOneTable>]? : true | string;}
-		|	{ [K in `${SK["aggregation"]}:${string}`]? : AggregateFieldObjectFormValue<Env, OnlyOneTable, SK> }
-		|	{ [K in `${SK["json"]}:${string}`]? : FieldObjectForm<Env, OnlyOneTable, SK> }
-		| 	{ [K in `${SK["raw"]}:${string}`]? : string}
+		|	{ [K in `${SK["aggregationL"]}${string}${SK["aggregationR"]}`]? : AggregateFieldObjectFormValue<Env, OnlyOneTable, SK> }
+		|	{ [K in `${SK["jsonL"]}${string}${SK["jsonR"]}`]? : FieldObjectForm<Env, OnlyOneTable, SK> }
+		| 	{ [K in `${SK["rawL"]}${string}${SK["rawR"]}`]? : string}
 
 	// Table from field object form
 	type TableFromFieldAsObject<
@@ -181,9 +181,9 @@ The raw sql statement must be a string but can be the result of a function ! As 
 		SK extends SyntaxKeys = DefaultSyntaxKeys 
 	> = 
 			{ [k in keyof F as k extends FlatEnvKeys<Env, OnlyOneTable> ? (F[k] extends string ? F[k] : PointToUnderscore<k>) : never] : FlatEnv<Env, OnlyOneTable>[k & keyof FlatEnv<Env, OnlyOneTable>]}
-		&	{ [k in keyof F as k extends `${SK["aggregation"]}:${infer alias}` ? alias : never] : F[k] extends {value : infer A} ? Array<A extends FlatEnvKeys<Env, OnlyOneTable> ? FlatEnv<Env, OnlyOneTable>[A] : TableFromFieldAsObject<Env, A & Record<string, any>, OnlyOneTable, SK>> : never}
-		&	{ [k in keyof F as k extends `${SK["json"]}:${infer alias}` ? alias : never] : TableFromFieldAsObject<Env, F[k] & Record<string, any>, OnlyOneTable, SK>}
-		&	{ [k in keyof F as k extends `${SK["raw"]}:${infer alias}` ? alias : never] : any}
+		&	{ [k in keyof F as k extends `${SK["aggregationL"]}${infer alias}${SK["aggregationR"]}` ? alias : never] : F[k] extends {value : infer A} ? Array<A extends FlatEnvKeys<Env, OnlyOneTable> ? FlatEnv<Env, OnlyOneTable>[A] : TableFromFieldAsObject<Env, A & Record<string, any>, OnlyOneTable, SK>> : never}
+		&	{ [k in keyof F as k extends `${SK["jsonL"]}${infer alias}${SK["jsonR"]}` ? alias : never] : TableFromFieldAsObject<Env, F[k] & Record<string, any>, OnlyOneTable, SK>}
+		&	{ [k in keyof F as k extends `${SK["rawL"]}${infer alias}${SK["rawR"]}` ? alias : never] : any}
 
 
 
@@ -223,6 +223,13 @@ The raw sql statement must be a string but can be the result of a function ! As 
    =  Alias checker
    ========================================================================= */
 
+type PairedKey<
+	Alias extends string,
+	SK extends SyntaxKeys = DefaultSyntaxKeys
+> 	= 		(`${SK['aggregationL']}${Alias}${SK['aggregationR']}`)
+		|	(`${SK['jsonL']}${Alias}${SK['jsonR']}`)
+		|	(`${SK['rawL']}${Alias}${SK['rawR']}`)
+
 /**
  AliasOrigin : {
 	"alias" : "original key"
@@ -237,7 +244,7 @@ type AliasOriginFromObject<
 
 	SK extends SyntaxKeys = DefaultSyntaxKeys 	
 > = { 
-	[ A in keyof Obj as A extends `${SK['aggregation' | 'json' | 'raw']}:${infer Alias}` ? Alias : (Obj[A] extends `${infer Alias}` ? Alias : (Obj[A] extends true ? A : never))] : A
+	[ A in keyof Obj as A extends PairedKey<infer Alias> ? Alias : (Obj[A] extends `${infer Alias}` ? Alias : (Obj[A] extends true ? A : never))] : A
 };
 
 type AliasOriginFromArray<
@@ -253,7 +260,7 @@ type AliasesFromObject<
 
 	SK extends SyntaxKeys = DefaultSyntaxKeys 
 > = {
-	[A in keyof Obj] : A extends `${SK['aggregation' | 'json' | 'raw']}:${infer Alias}` ? Alias : (Obj[A] extends `${infer Alias}` ? Alias : (Obj[A] extends true ? A : never));
+	[A in keyof Obj] : A extends PairedKey<infer Alias> ? Alias : (Obj[A] extends `${infer Alias}` ? Alias : (Obj[A] extends true ? A : never));
 }
 
 type AliasesFromArray<

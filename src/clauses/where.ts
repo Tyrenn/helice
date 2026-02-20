@@ -67,6 +67,8 @@ Will translate in :
 	type StringArrayKeys<T> = KeysOfType<T, string[]>;
 	type StringKeys<T> = KeysOfType<T, string>;
 	type NonArrayKeys<T> = KeysNotOfType<T, any[]>;
+	type NumberKeys<T> = KeysOfType<T, number>;
+	type NumberArrayKeys<T> = KeysOfType<T, number[]>;
 
 
 
@@ -80,23 +82,25 @@ Will translate in :
 	// 	[k in keyof T as k extends string ? `${P}${k}` : never]? : UnArraying<T[k] | null> |  TableWhere<T>[];
 	// }
 
-	// { [prefixcolumn] : Accepte tout}
-	type PrefixedProp<
+	// { [prefixcolumn] : Anything}
+	type WrapProp<
 		T extends Table,
 		K extends keyof T,
-		P extends string,
+		Prefix extends string,
+		Suffix extends string,
 
 		SK extends SyntaxKeys
-	> = {	[k in K & string as `${P}${k}`]? : Arrayed<T[k] | null> |  TableWhere<T, SK>[] | KeysOfType<T, T[k]>; };
+	> = {	[k in K & string as `${Prefix}${k}${Suffix}`]? : Arrayed<T[k] | null> |  TableWhere<T, SK>[] | KeysOfType<T, T[k]>; };
 
-	// { [prefixcolumn] : Accepte tout sauf les []}
-	type PrefixedPropNonArray<
+	// { [prefixcolumn] : Anything but array }
+	type WrapPropNotArrayed<
 		T extends Table,
 		K extends keyof T,
-		P extends string,
+		Prefix extends string,
+		Suffix extends string,
 
 		SK extends SyntaxKeys
-	> = { [k in K & string as `${P}${k}`]? : T[k] | null |  TableWhere<T, SK>[] | KeysOfType<T, T[k]>; };
+	> = { [k in K & string as `${Prefix}${k}${Suffix}`]? : T[k] | null |  TableWhere<T, SK>[] | KeysOfType<T, T[k]>; };
 
 
 
@@ -113,7 +117,7 @@ Will translate in :
 		T,
 		SK extends SyntaxKeys
 	> = {
-		[K in StringArrayKeys<T> & string as `${SK["tsquery"]}:${K}`]?: TSQuery;
+		[K in StringArrayKeys<T> & string as `${SK["tsqueryL"]}${K}${SK["tsqueryR"]}`]?: TSQuery;
 	}
 
 
@@ -134,13 +138,14 @@ Will translate in :
 		SK extends SyntaxKeys
 	> =
 		BaseProp<T, SK>
-		& PrefixedProp<T, ArrayKeys<T>, `[${'' | '=' | '!' | '<>' | '!='}]:`, SK>							// arrays operators [=],[!],[]… on arrays
-		& PrefixedProp<T, StringArrayKeys<T>, `[${'~~' | '~~*' | '!~~' | '!~~*'}]:`, SK>					// LIKE operators on string[]
-		& PrefixedProp<T, NonArrayKeys<T>, `${'=' | '<>' | '!='}:`, SK>										// =, != on non-array
-		& PrefixedPropNonArray<T, NonArrayKeys<T>, `${'>' | '>=' | '<' | '<='}:`, SK>						// >, >=, <, ≤ on non-array
-		& PrefixedProp<T, StringKeys<T>, `${'~~' | '~~*' | '!~~' | '!~~*' | '~' | '~*'}:`, SK>			// LIKE operators on string
+		& WrapProp<T, NonArrayKeys<T>, SK["equalityL"], SK["equalityR"], SK>									// =, != on non-array
+		& WrapProp<T, StringKeys<T>, SK['likeL'], SK['likeR'], SK>												// LIKE operators on string
+		& WrapProp<T, NumberKeys<T>, SK['compareL'], SK['compareR'], SK>										// >, >=, <, ≤ on non-array number
+		& WrapProp<T, ArrayKeys<T>, SK["arrayEqualityL"], SK["arrayEqualityR"], SK>						// arrays operators [=],[!],[]… on arrays
+		& WrapProp<T, StringArrayKeys<T>, SK["arrayLikeL"], SK["arrayLikeR"], SK>							// LIKE operators on string[]
+		& WrapProp<T, NumberArrayKeys<T>, SK['arrayCompareL'], SK['arrayCompareR'], SK>					// >, >=, <, ≤ on number[]
 		& TSQueryProp<T, SK>		 																							// @@:tsquery
-		& { [k in `${SK["andGroup"]}:${string}`]? : TableWhere<T, SK>[]}										// nested AND
+		& { [k in `${SK["andGroup"]}${string}`]? : TableWhere<T, SK>[]}										// nested AND
 
 
 
