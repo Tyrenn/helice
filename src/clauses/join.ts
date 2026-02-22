@@ -60,7 +60,13 @@ import { DefaultSyntaxKeys, SyntaxKeys, SyntaxKeysConstant, VerboseSyntaxKeys } 
 	*/
 
 	// SameTypeColumns gives all accessible possible column candidate for a join on TargetTable.Column
-	type SameTypeColumns<Env extends Environment, AccessibleTables extends string, TargetTable extends string, Column extends StrKeys<Env[TargetTable]>> = KeysOfType<FlatEnv<Pick<Env, AccessibleTables>>, Env[TargetTable][Column] & (string | number | boolean)>;
+	type SameTypeColumns<
+		Env extends Environment,
+		AccessibleTables extends string,
+		TargetTable extends string, 
+		
+		Column extends StrKeys<Env[TargetTable]>
+	> = KeysOfType<FlatEnv<Pick<Env, AccessibleTables>>, Env[TargetTable][Column] & (string | number | boolean)>;
 
 	type JoinStringValue<
 		Env extends Environment,
@@ -130,9 +136,9 @@ import { DefaultSyntaxKeys, SyntaxKeys, SyntaxKeysConstant, VerboseSyntaxKeys } 
    ========================================================================= */
 
 /**
- AliasOrigin : {
+AliasOrigin : {
 	"alias" : "original key"
- }
+}
 
 Aliases : {
 	"original key" : "alias"

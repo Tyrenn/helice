@@ -30,22 +30,22 @@ type TestEnv = {
 // SelectTable.join une requete SelectEnv
 
 let t3 = new Helice<TestEnv, VerboseSyntaxKeys>()
-	.select('table1').join({
-		table2 : { 
-			"column22 =" : "table1.column1",
-			"column22 !~~": "table1.column3",
-			"column22 !~~*": "eee",
-			"AND eee": {
+	// .select('table1').where({}) .join({
+	// 	table2 : { 
+	// 		"column22 =" : "table1.column1",
+	// 		"column22 !~~": "table1.column3",
+	// 		"column22 !~~*": "eee",
+	// 		"AND eee": {
 				
-			}
+	// 		}
 		
-		}
-	}).field({
-		"table2.column21" : "ezfzef"
-	})
+	// 	}
+	// }).field({
+	// 	"table2.column21" : "ezfzef"
+	// })
 
 
-let t1 = new Helice<TestEnv>().select("table2").join();
+let t1 = new Helice<TestEnv, VerboseSyntaxKeys>().select("table2").join({table1 : "column1 LEFT JOIN table2.column22"});
 ;
 	// .where({
 	// 	"table1.column2" : 4,

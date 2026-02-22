@@ -1,6 +1,6 @@
 
-import {Arrayed, KeysOfType, KeysNotOfType, Table, Environment, FlatEnv, Obj} from '../types';
-import { DefaultSyntaxKeys, SyntaxKeys } from '../syntaxkeys';
+import {Arrayed, KeysOfType, KeysNotOfType, Table, Environment, FlatEnv, Obj, UnArraying} from '../types';
+import { DefaultSyntaxKeys, SKEqualityOP, SKEqualityOPL, SKEqualityOPR, SyntaxKeys, SyntaxKeysConstant, VerboseSyntaxKeys } from '../syntaxkeys';
 
 /****************
 		WHERE
@@ -63,41 +63,31 @@ Will translate in :
 
 
 	/** --------- Precomputed Key groups ------------- */
-	type ArrayKeys<T> = KeysOfType<T, any[]>;
-	type StringArrayKeys<T> = KeysOfType<T, string[]>;
-	type StringKeys<T> = KeysOfType<T, string>;
-	type NonArrayKeys<T> = KeysNotOfType<T, any[]>;
-	type NumberKeys<T> = KeysOfType<T, number>;
-	type NumberArrayKeys<T> = KeysOfType<T, number[]>;
+	type KeysOfArray<T> = KeysOfType<T, any[]>;
+	type KeysOfStringArray<T> = KeysOfType<T, string[]>;
+	type KeysOfString<T> = KeysOfType<T, string>;
+	type KeysOfNonArray<T> = KeysNotOfType<T, any[]>;
+	type KeysOfNumber<T> = KeysOfType<T, number>;
+	type KeysOfNumberArray<T> = KeysOfType<T, number[]>;
 
-
-	// TODO should I wrap all into a better syntax ? 
-	// TODO { [k in keyof TABLE & string as TABLE[k] extends TYPE ? `${PREFIX}${k}${SUFFIX}` : never]? : Arrayed<T[k] | null> |  TableWhere<T, SK>[] | KeysOfType<T, T[k]>;}
-	// TODO { [k in keyof TABLE & string as TABLE[k] extends TYPE ? `${PREFIX}${k}${SUFFIX}` : never]? : T[k] | null | TableWhere<T, SK>[] | KeysOfType<T, T[k]>;}
-	// TODO why do we have KeysOfType and TableWhere ? => Because we give a flat env.
-	// TODO should we remove TableWhere ? As conditional // AND are ensured through AND props
 
 	/** --------- WRAP Properties ------------- */
 
-	// { [prefixcolumn] : Anything}
+	// { [wrappedkey] : Anything}
 	type WrapKeyArrayedValue<
 		T extends Table,
 		K extends keyof T,
 		Prefix extends string,
-		Suffix extends string,
-
-		SK extends SyntaxKeys
-	> = {	[k in K & string as `${Prefix}${k}${Suffix}`]? : Arrayed<T[k] | null> |  FlatEnvWhere<T, SK>[] | KeysOfType<T, T[k]>; };
+		Suffix extends string
+	> = {	[k in K & string as `${Prefix}${k}${Suffix}`]? : Arrayed<T[k] | null> | KeysOfType<T, Arrayed<T[k]>>; };
 
 	// { [prefixcolumn] : Anything but array }
 	type WrapKeyNoArrayValue<
 		T extends Table,
 		K extends keyof T,
 		Prefix extends string,
-		Suffix extends string,
-
-		SK extends SyntaxKeys
-	> = { [k in K & string as `${Prefix}${k}${Suffix}`]? : T[k] | null |  FlatEnvWhere<T, SK>[] | KeysOfType<T, T[k]>; };
+		Suffix extends string
+	> = { [k in K & string as `${Prefix}${k}${Suffix}`]? : UnArraying<T[k]> | null | KeysOfType<T, UnArraying<T[k]>>; };
 
 
 
@@ -114,7 +104,7 @@ Will translate in :
 		T,
 		SK extends SyntaxKeys
 	> = {
-		[K in StringArrayKeys<T> & string as `${SK["tsqueryL"]}${K}${SK["tsqueryR"]}`]?: TSQuery;
+		[K in KeysOfStringArray<T> & string as `${SK["tsqueryL"]}${K}${SK["tsqueryR"]}`]?: TSQuery;
 	}
 
 
@@ -136,30 +126,27 @@ Will translate in :
 		SK extends SyntaxKeys
 	> =
 		BaseProp<T, SK>
-		& WrapKeyArrayedValue<T, NonArrayKeys<T>, SK["equalityL"], SK["equalityR"], SK>									// =, != on non-array
-		& WrapKeyArrayedValue<T, StringKeys<T>, SK['likeL'], SK['likeR'], SK>												// LIKE operators on string
-		& WrapKeyArrayedValue<T, NumberKeys<T>, SK['compareL'], SK['compareR'], SK>										// >, >=, <, ≤ on non-array number
-		& WrapKeyArrayedValue<T, ArrayKeys<T>, SK["arrayEqualityL"], SK["arrayEqualityR"], SK>							// arrays operators [=],[!],[]… on arrays => TODO yes but if array as value it is wierd... Like everything is = to everything ?
-		& WrapKeyArrayedValue<T, StringArrayKeys<T>, SK["arrayLikeL"], SK["arrayLikeR"], SK>							// LIKE operators on string[]
-		& WrapKeyArrayedValue<T, NumberArrayKeys<T>, SK['arrayCompareL'], SK['arrayCompareR'], SK>					// >, >=, <, ≤ on number[]	=> TODO yes but if array as value it is wierd... like everything is compared to everything ?
+		& WrapKeyArrayedValue<T, KeysOfNonArray<T>, SKEqualityOPL<SK>, SKEqualityOPR<SK>>							// =, != on non-array
+		& WrapKeyArrayedValue<T, KeysOfNumber<T>, SK['compareL'], SK['compareR']>																						// >, >=, <, ≤ on non-array number
+		& WrapKeyArrayedValue<T, KeysOfString<T>, SK['likeL'], SK['likeR']>																								// LIKE operators on string
+		& WrapKeyNoArrayValue<T, KeysOfArray<T>, SK["arrayEqualityL"] | SK["arrayInequalityL"], SK["arrayEqualityR"] | SK["arrayInequalityL"]>	// arrays operators [=],[!],[]… on arrays
+		& WrapKeyNoArrayValue<T, KeysOfNumberArray<T>, SK['arrayCompareL'], SK['arrayCompareR']>																	// >, >=, <, ≤ on number[]
+		& WrapKeyNoArrayValue<T, KeysOfStringArray<T>, SK["arrayLikeL"], SK["arrayLikeR"]>																			// LIKE operators on string[]
 		& TSQueryProp<T, SK>		 																											// @@:tsquery
 		& { [k in `${SK["andGroup"]}${string}`]? : FlatEnvWhere<T, SK>[]}														// nested AND
-
 
 
 /* =========================================================================
    =  Final Type
    ========================================================================= */
-	// TODO Should authorise grouped [] to allow OR from the very start
 	// TODO Should authorise : table
-	// TODO Should prefix string like in join '' to separate from autocompleted columns ?
 	// TODO Test
 
 	export type Where<
 		Env extends Environment,
-
-		SK extends SyntaxKeys
-	> = FlatEnvWhere<FlatEnv<Env>, SK>;
+		SK extends SyntaxKeys,
+		OnlyOneTable extends keyof Env | undefined = undefined,
+	> = Arrayed<FlatEnvWhere<FlatEnv<Env, OnlyOneTable>, SK>>;
 
 
 
@@ -225,6 +212,111 @@ Will translate in :
 
 
 
+class WhereParser{
+
+	idx: number = 1;
+
+	values: any[] = [];
+
+	where : string = "";
+
+	from : string = "";
+
+	readonly SK : SyntaxKeysConstant;
+	
+	readonly VALUE_REGEX : RegExp;
+	readonly ARRAY_VALUE_REGEX : RegExp;
+
+	constructor(sk : SyntaxKeysConstant){
+		this.SK = sk;
+
+		// Match `{sk[]}name{sk[]}` and `name`
+		this.VALUE_REGEX = new RegExp(
+			String.raw`^(?<opl>(?:${
+				[ this.SK['likeL'], this.SK['equalityL'], this.SK['inequalityL'], this.SK['compareL'] ].flatMap(v => Array.isArray(v) ? v : [v]).map(v => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
+			}))(?<name>.+)(?<opr>${
+				[ this.SK['likeR'], this.SK['equalityR'], this.SK['inequalityR'], this.SK['compareR']].flatMap(v => Array.isArray(v) ? v : [v]).map(v => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
+			})$`);
+		this.ARRAY_VALUE_REGEX = new RegExp(
+			String.raw`^(?<opl>(?:${
+				[ this.SK['arrayLikeL'], this.SK['arrayEqualityL'], this.SK['arrayInequalityL'], this.SK['arrayCompareL'], ].flatMap(v => Array.isArray(v) ? v : [v]).map(v => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
+			}))(?<name>.+)(?<opr>${
+				[ this.SK['arrayLikeR'], this.SK['arrayEqualityR'], this.SK['arrayInequalityR'], this.SK['arrayCompareR']].flatMap(v => Array.isArray(v) ? v : [v]).map(v => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
+			})$`);
+	}
+
+	pushValue(v : any) : string{
+		this.values.push(v);
+		return `${this.idx++}`;
+	}
+
+	private matchSK(key : keyof SyntaxKeysConstant, value : string){
+		return Array.isArray(this.SK[key]) ? this.SK[key].includes(value) : this.SK[key] === value;
+	}
+
+	private parseArrayValue(key : string, value : any){
+		const match = key.match(this.ARRAY_VALUE_REGEX);
+	}
+
+	// TODO Do a real map for each operator
+	private parseValue(key : string, value : any) {
+		const match = key.match(this.VALUE_REGEX);
+
+		if (!match || !match.groups?.name)
+			return;
+
+	if ((!match.groups.opl && !match.groups.opr) || (this.matchSK('equalityL', match.groups.opl) && this.matchSK('equalityR', match.groups.opr)))
+		if (value === null)
+			return this.where += `${match.groups.name} IS NULL`;
+		else if (!Array.isArray(value))
+			return this.where += `${match.groups.name} = $${this.pushValue(value)}`;
+		else if (value.length == 1)
+			return this.where += `${match.groups.name} = $${this.pushValue(value[0])}`;
+		else
+			return this.where += value.includes(null) ? `( ${match.groups.name} IS NULL OR ${match.groups.name} = ANY($${this.pushValue(value[0])}) )` : `${match.groups.name} = ANY($${this.pushValue(value[0])})`;
+
+	else if(this.matchSK('inequalityL', match.groups.opl) && this.matchSK('inequalityL', match.groups.opr))
+		if (value === null)
+			return this.where += `${match.groups.name} IS NOT NULL`;
+		else if (!Array.isArray(value))
+			return this.where += `${match.groups.name} <> $${this.pushValue(value)}`;
+		else if (value.length == 1)
+			return this.where += `${match.groups.name} <> $${this.pushValue(value[0])}`;
+		else
+			return this.where += value.includes(null) ? `( ${match.groups.name} IS NOT NULL AND ${match.groups.name} <> ALL($${this.pushValue(value[0])}) )` : `${match.groups.name} <> ALL($${this.pushValue(value[0])})`;
+
+	else if(this.matchSK('likeL', match.groups.opl) && this.matchSK('likeL', match.groups.opr))
+		if (value === null)
+			return this.where += `${match.groups.name} IS NOT NULL`;
+		else if (!Array.isArray(value))
+			return this.where += `${match.groups.name} ${match.groups.op} $${this.pushValue(value)}`;
+		else if (value.length == 1)
+			return this.where += `${match.groups.name} ${match.groups.op} $${this.pushValue(value[0])}`;
+		else
+			return this.where += value.includes(null) ? `( ${match.groups.name} IS NOT NULL OR ${match.groups.name} ${match.groups.op} ANY($${result.pushValue(value[0])}) )` : `${match.groups.name} ${match.groups.op} ANY($${result.pushValue(value[0])})`;
+
+	else
+		if (value === null)
+			return result.where += `${match.groups.name} IS NOT NULL`;
+		else if (!Array.isArray(value))
+			return result.where += `${match.groups.name} ${match.groups.op} $${result.pushValue(value)}`;
+		else if (value.length == 1)
+			return result.where += `${match.groups.name} ${match.groups.op} $${result.pushValue(value[0])}`;
+		else
+			return result.where += value.includes(null) ? `( ${match.groups.name} IS NOT NULL AND ${match.groups.name} ${match.groups.op} ALL($${result.pushValue(value[0])}) )` : `${match.groups.name} ${match.groups.op} ALL($${result.pushValue(value[0])})`;
+	
+	}
+
+
+	parse(where: Obj | Obj[], idx : number = 1){
+		this.idx = idx;
+		this.values = [];
+
+		
+	}
+}
+
+
 
 class WhereSQLResult{
 	where: string = '';
@@ -257,9 +349,9 @@ class WhereSQLResult{
 		~~*:i : "test"		=>			i ~~* "test"
 		~~:i : [1, null]	=>			(i is NULL OR i ~~ array_to_string([1], ' '))
 	 */
-function whereValueToSQL(key : string, value : any, result : WhereSQLResult){
+function whereValueToSQL(key : string, value : any, result : WhereSQLResult, sk : SyntaxKeysConstant){
 	const keyRgx = new RegExp(
-		String.raw`^(?:(?<op>[^:]*)]:)(?<name>.+)$`	// Match `op:name` and `name`
+		String.raw`^(?:(?<op>${sk['']}*)])(?<name>.+)(${}$`	// Match `op:name` and `name`
 	);
 	const match = key.match(keyRgx);
 
@@ -519,3 +611,4 @@ type ENV = {
 		a4 : number;
 	}
 };
+

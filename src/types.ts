@@ -98,7 +98,7 @@ export type FlatEnvKeys<
 
 export type FlatEnv<
 	Env extends Environment,
- 	OnlyOneTable extends keyof Env | undefined = undefined,
+	OnlyOneTable extends keyof Env | undefined = undefined,
 > =
 	{ [K in FlatEnvKeys<Env, OnlyOneTable>]: 		K extends `${infer T}.${infer C}` ? (Env[T & keyof Env][C & keyof Env[T & keyof Env]]) : (Env[OnlyOneTable & keyof Env][K & keyof Env[OnlyOneTable & keyof Env]]) };
 	// Checking OnlyOneTable is not done at root, even tough it would simplify the type, because this form allows TS to know that FlatEnvKeys are keyof FlatEnv

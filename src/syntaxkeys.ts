@@ -27,20 +27,70 @@ export type SyntaxKeys = {
 	tsqueryL : string;
 	tsqueryR : string;
 
-	// Operators
+	// String Like OP ~~ ~~* !~~ !~~* ~ ~*
 	likeL : string;
 	likeR : string;
-	equalityL : string;
-	equalityR : string;
-	compareL : string;
-	compareR : string;
+	softLikeL : string;
+	softLikeR : string;
+	dislikeL : string;
+	dislikeR : string;
+	softDislikeL : string;
+	softDislikeR : string;
+	regexLikeL : string;
+	regexLikeR : string;
 	arrayLikeL : string;
 	arrayLikeR : string;
+	arraySoftLikeL : string;
+	arraySoftLikeR : string;
+	arrayDislikeL : string;
+	arrayDislikeR : string;
+	arraySoftDislikeL : string;
+	arraySoftDislikeR : string;
+	arrayRegexLikeL : string;
+	arrayRegexLikeR : string;
+
+	// Equality OP = <> !=
+	equalityL : string;
+	equalityR : string;
+	inequalityL : string;
+	inequalityR : string;
 	arrayEqualityL : string;
 	arrayEqualityR : string;
-	arrayCompareL: string;
-	arrayCompareR: string;
+	arrayInequalityL : string;
+	arrayInequalityR : string;
+
+
+	// Comparison OP > >= < <=
+	softSuperiorL : string;
+	softSuperiorR : string;
+	softInferiorL : string;
+	softInferiorR : string;
+	strictSuperiorL : string;
+	strictSuperiorR : string;
+	strictInferiorL : string;
+	strictInferiorR : string;
+	arraySoftSuperiorL : string;
+	arraySoftSuperiorR : string;
+	arraySoftInferiorL : string;
+	arraySoftInferiorR : string;
+	arrayStrictSuperiorL : string;
+	arrayStrictSuperiorR : string;
+	arrayStrictInferiorL : string;
+	arrayStrictInferiorR : string;
 };
+
+
+export type SKLikeOP<SK extends SyntaxKeys> = SK["likeL" | "likeR" | "softLikeL" | "softLikeR" | "dislikeL" | "dislikeR" | "softDislikeL" | "softDislikeR" | "regexLikeL" | "regexLikeR"]; 
+export type SKArrayLikeOP<SK extends SyntaxKeys> = SK["arrayLikeL" |"arrayLikeR" |"arraySoftLikeL" |"arraySoftLikeR" |"arrayDislikeL" |"arrayDislikeR" |"arraySoftDislikeL" |"arraySoftDislikeR" |"arrayRegexLikeL" |"arrayRegexLikeR"];
+
+export type SKEqualityOPL<SK extends SyntaxKeys> = SK[ "equalityL" | "inequalityL" ];
+export type SKEqualityOPR<SK extends SyntaxKeys> = SK[ "equalityR" | "inequalityR" ];
+export type SKArrayEqualityOP<SK extends SyntaxKeys> = SK[ "arrayEqualityL" | "arrayEqualityR" | "arrayInequalityL" | "arrayInequalityR" ];
+
+export type SKCompareOP<SK extends SyntaxKeys> = SK["softSuperiorL" | "softSuperiorR" | "softInferiorL" | "softInferiorR" | "strictSuperiorL" | "strictSuperiorR" | "strictInferiorL" | "strictInferiorR"]; 
+export type SKArrayCompareOP<SK extends SyntaxKeys> = SK["arraySoftSuperiorL" | "arraySoftSuperiorR" | "arraySoftInferiorL" | "arraySoftInferiorR" | "arrayStrictSuperiorL" | "arrayStrictSuperiorR" | "arrayStrictInferiorL" | "arrayStrictInferiorR"]; 
+
+
 
 export type SyntaxKeysConstant = {
 
@@ -71,12 +121,16 @@ export type SyntaxKeysConstant = {
 	likeR : string | string[];
 	equalityL : string | string[];
 	equalityR : string | string[];
+	inequalityL : string | string[];
+	inequalityR : string | string[];
 	compareL : string | string[];
 	compareR : string | string[];
 	arrayLikeL : string | string[];
 	arrayLikeR : string | string[];
 	arrayEqualityL : string | string[];
 	arrayEqualityR : string | string[];
+	arrayInequalityL : string | string[];
+	arrayInequalityR : string | string[];
 	arrayCompareL: string | string[];
 	arrayCompareR: string | string[];
 }
@@ -109,14 +163,18 @@ export const DefaultSyntaxKeys = {
 
 	likeL : ['~~:', '~~*:', '!~~:', '!~~*:', '~:', '~*:'],
 	likeR : '',
-	equalityL : ['=:', '<>:', '!=:'],
+	equalityL : '=:',
 	equalityR : '',
+	inequalityL : ['<>:', '!=:'],
+	inequalityR : '',
 	compareL : ['>:', '>=:', '<:', '<=:'],
 	compareR : '',
 	arrayLikeL : ['[~~]:', '[~~*]:', '[!~~]:', '[!~~*]:', '[~]:', '[~*]:'],
 	arrayLikeR : '',
-	arrayEqualityL : ['[=]:', '[<>]:', '[!=]:'],
+	arrayEqualityL : '[=]:',
 	arrayEqualityR : '',
+	arrayInequalityL : ['[<>]:', '[!=]:'],
+	arrayInequalityR : '',
 	arrayCompareL :  ['[>]:', '[>=]:', '[<]:', '[<=]:'],
 	arrayCompareR : '',
 	tsqueryL : "@@:",
@@ -150,13 +208,17 @@ export const VerboseSyntaxKeys = {
 	likeL : '',
 	likeR : [' ~~', ' ~~*', ' !~~', ' !~~*', ' ~', ' ~*'],
 	equalityL : '',
-	equalityR : [' =', ' <>', ' !='],
+	equalityR : ' =',
+	inequalityL : '',
+	inequalityR : [' <>', ' !='],
 	compareL : '',
 	compareR : [' >', ' >=', ' <', ' <='],
 	arrayLikeL : '[',
 	arrayLikeR : ['] ~~', '] ~~*', '] !~~', '] !~~*', '] ~', '] ~*'],
 	arrayEqualityL : '[',
-	arrayEqualityR : ['] =', '] <>', '] !='],
+	arrayEqualityR : '] =',
+	arrayInequalityL : '[',
+	arrayInequalityR : ['] <>', '] !='],
 	arrayCompareL :  '[',
 	arrayCompareR : ['] >', '] >=', '] <', '] <='],
 } as const satisfies SyntaxKeysConstant;

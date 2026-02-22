@@ -1,6 +1,6 @@
 import { Field, FieldHasDuplicateAliases, TableFromField } from "./clauses/field";
 import { EnvironmentFromJoin, Join, JoinHasDuplicateAliases } from "./clauses/join";
-import { mergeWHEREAsAND, Where, oldwhereToSQL } from "./clauses/where";
+import { mergeWHEREAsAND, Where } from "./clauses/where";
 import { DefaultSyntaxKeys, SyntaxKeys } from "./syntaxkeys";
 import { CommonTableExpression, Environment, MethodResultType, PreparedQueryArguments, PreparedQueryOptions, Table } from "./types";
 
@@ -21,7 +21,7 @@ export class SelectQuery<
 	
 	#from : string;
 	#field : Field<AccEnv, From, SK> = '*';
-	#where : Where<AccEnv, SK> | undefined;
+	#where : Where<AccEnv, SK, From> | undefined;
 	#join : Join<Env, AccEnv, SK> | undefined;
 	#limit : number | undefined;
 	
@@ -91,11 +91,11 @@ export class SelectQuery<
 		return (this as unknown ) as MethodResultType<SelectQuery<Env, EnvironmentFromJoin<Env, AccEnv, J, SK>, TableResult, undefined, SK>, typeof this, "join">;
 	}
 
-	where<W extends Where<AccEnv, SK>>(
+	where<W extends Where<AccEnv, SK, From>>(
 		where : W
 	){
 		this.#where = where;
-		return (this as unknown) as MethodResultType<SelectQuery<Env, AccEnv, TableResult, From, SK>, typeof this, "where">;
+		return (this as unknown) as MethodResultType<SelectQuery<Env, AccEnv, TableResult, From, SK>, typeof this, "where" | "join">;
 	}
 
 	limit(
