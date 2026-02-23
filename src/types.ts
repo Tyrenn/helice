@@ -91,8 +91,8 @@ But its presence here drastically reduce complexity as this type is used everywh
 
  */
 export type FlatEnvKeys<
-  Env extends Environment,
-  OnlyOneTable extends keyof Env | undefined = undefined,
+	Env extends Environment,
+	OnlyOneTable extends keyof Env | undefined = undefined,
 > =
 	OnlyOneTable extends keyof Env ? (keyof Env[OnlyOneTable]) : ( {[T in StrKeys<Env>]: `${T}.${StrKeys<Env[T]>}` }[StrKeys<Env>])
 
@@ -141,6 +141,27 @@ export type PreparedQueryArguments<Options extends Record<any, any>> =
  */
 export interface CommonTableExpression<TableResult extends Table, SpectificPreparedQueryArguments extends Obj>{
 	prepare<A extends SpectificPreparedQueryArguments>(options? : PreparedQueryOptions<A>) : (args : PreparedQueryArguments<A>) => {query : string, args : any[]};
+}
+
+
+
+
+
+/* =========================================================================
+   =  Column class used in where
+   ========================================================================= */
+
+export class Column<col extends string>{
+
+	name : col;
+
+	constructor(n : col){
+		this.name = n;
+	}
+}
+
+export function col<c extends string>(n : c) : Column<c>{
+	return new Column(n);
 }
 
 

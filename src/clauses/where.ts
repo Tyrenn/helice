@@ -1,5 +1,5 @@
 
-import {Arrayed, KeysOfType, KeysNotOfType, Table, Environment, FlatEnv, Obj, UnArraying} from '../types';
+import {Arrayed, KeysOfType, KeysNotOfType, Table, Environment, FlatEnv, Obj, UnArraying, Column} from '../types';
 import { DefaultSyntaxKeys, SKArrayCompareOPL, SKArrayCompareOPR, SKArrayEqualityOPL, SKArrayEqualityOPR, SKArrayLikeOPL, SKArrayLikeOPR, SKCompareOPL, SKCompareOPR, SKEqualityOP, SKEqualityOPL, SKEqualityOPR, SKLikeOPL, SKLikeOPR, SyntaxKeys, SyntaxKeysConstant, VerboseSyntaxKeys } from '../syntaxkeys';
 
 /****************
@@ -79,7 +79,7 @@ Will translate in :
 		K extends keyof T,
 		Prefix extends string,
 		Suffix extends string
-	> = {	[k in K & string as `${Prefix}${k}${Suffix}`]? : Arrayed<T[k] | null> | KeysOfType<T, Arrayed<T[k]>>; };
+	> = {	[k in K & string as `${Prefix}${k}${Suffix}`]? : Arrayed<T[k] | null> | Column<KeysOfType<T, Arrayed<T[k]>> & string>; };
 
 	// { [prefixcolumn] : Anything but array }
 	type WrapKeyNoArrayValue<
@@ -87,7 +87,7 @@ Will translate in :
 		K extends keyof T,
 		Prefix extends string,
 		Suffix extends string
-	> = { [k in K & string as `${Prefix}${k}${Suffix}`]? : UnArraying<T[k]> | null | KeysOfType<T, UnArraying<T[k]>>; };
+	> = { [k in K & string as `${Prefix}${k}${Suffix}`]? : UnArraying<T[k]> | null | Column<KeysOfType<T, UnArraying<T[k]>> & string>; };
 
 
 
@@ -128,7 +128,7 @@ Will translate in :
 		SK extends SyntaxKeys
 	> =
 		BaseProp<T, SK>
-		& WrapKeyArrayedValue<T, KeysOfNonArray<T>, SKEqualityOPL<SK>, SKEqualityOPR<SK>>					// =, != on non-array
+		& WrapKeyArrayedValue<T, keyof T, SKEqualityOPL<SK>, SKEqualityOPR<SK>>									// =, !=
 		& WrapKeyArrayedValue<T, KeysOfNumber<T>, SKCompareOPL<SK>, SKCompareOPR<SK>>							// >, >=, <, ≤ on non-array number
 		& WrapKeyArrayedValue<T, KeysOfString<T>, SKLikeOPL<SK>, SKLikeOPR<SK>>									// LIKE operators on string
 		& WrapKeyNoArrayValue<T, KeysOfArray<T>, SKArrayEqualityOPL<SK>, SKArrayEqualityOPR<SK>>			// arrays operators [=],[!],[]… on arrays
@@ -254,37 +254,99 @@ class WhereParser{
 // TODO WARNING change for a class column to avoid injection
 
 	pushValue(v : any) : string {
-		if(Array.isArray(v) && v.some(s => typeof s === "string" && /^[a-z_][a-z0-9_]*\.[a-z_][a-z0-9_]*$/.test(s)))
-
-		if(typeof v === "string" && /^[a-z_][a-z0-9_]*\.[a-z_][a-z0-9_]*$/.test(v))	// Then is another column
-
-		this.values.push(v);
-		return `${this.idx++}`;
+		if(Array.isArray(v) && v.some(s => s instanceof Column)) //Check if array and if contains a Column instance
+			return `'{${v.map(s => {
+				if(s instanceof Column)
+					return s.name;
+				this.values.push(s);
+				return `$${this.idx++}`;
+			}).join(', ')}}'`
+		else if(v instanceof Column)
+			return v.name;
+		else{
+			this.values.push(v);
+			return `$${this.idx++}`;
+		}
 	}
 
 	private matchSK(skKey : keyof SyntaxKeysConstant, key : string){
 		return Array.isArray(this.SK[skKey]) ? this.SK[skKey].includes(key) : this.SK[skKey] === key;
 	}
 
-	private parseArrayValue(key : string, value : any){
-		const match = key.match(this.ARRAY_VALUE_REGEX);
-	}
-
-
-	private processArrayColumn(op : string, opType : "like" | "equality" | "inequality", name : string, value : any){
+	private processArrayColumn(op : string, opType : "like" | "equality" | "inequality" | "compare", name : string, value : any){
 		
 		if(opType === "equality")
 			if (!Array.isArray(value))
-				return this.where += `$${this.pushValue(value)} = ANY(${name})`;
+				return this.where += `${this.pushValue(value)} = ANY(${name})`;
 			else if(value.length == 1)
-				return result.where += `$${result.pushValue(value[0])} = ANY(${match.groups.name})`;
+				return this.where += `${this.pushValue(value[0])} = ANY(${name})`;
 			else
-				return result.where += `( $${value.filter(v => v !== null).map(v => `$${result.pushValue(v)} = ANY(${match.groups!.name}`).join(' OR ')} ${value.includes(null) ? `OR ${match.groups.name} IS NULL ` : ''})` ;
+				return this.where += `( ${value.filter(v => v !== null).map(v => `${this.pushValue(v)} = ANY(${name}`).join(' OR ')} ${value.includes(null) ? `OR ${name} IS NULL ` : ''})` ;
+	
+		else if(opType === 'inequality')
+			if(!Array.isArray(value))
+				return this.where += `${this.pushValue(value)} ${op} ALL(${name})`
+			else if(value.length == 1)
+				return this.where += `${this.pushValue(value[0])} ${op} ALL(${name})`
+			else
+				return this.where += `( ${value.filter(v => v !== null).map(v => `${this.pushValue(value[0])} ${op} ALL(${name})`).join(' AND ')} ${value.includes(null) ? `AND ${name} IS NOT NULL ` : ''})`
+
+		else if(opType === 'like')
+			if(!Array.isArray(value))
+				return this.where += `array_to_string(${name}, ' ') ${op} ${this.pushValue(value)}`;
+			else if(value.length == 1)
+				return this.where += `array_to_string(${name}, ' ') ${op} ${this.pushValue(value[0])}`;
+			else
+				return this.where += `( ${value.filter(v => v !== null).map(v => `array_to_string(${name}, ' ') ${op} ${this.pushValue(v)}`).join(' OR ')} ${value.includes(null) ? `OR ${name} IS NULL ` : ''} )`;
+
+		else if(opType === 'compare')
+			if(!Array.isArray(value))
+				return this.where += `${this.pushValue(value)} ${op} ALL(${name})`
+			else
+				return
+	}
+
+	private parseArrayValue(key : string, value : any){
+		const match = key.match(this.ARRAY_VALUE_REGEX);
+
+		if (!match || !match.groups?.name)
+			return;
+
+		
+		if ((!match.groups.opl && !match.groups.opr) || (this.matchSK('arrayEqualityL', match.groups.opl) && this.matchSK('arrayEqualityR', match.groups.opr)))
+			return this.processArrayColumn("=", "equality", match.groups?.name, value);
+
+		else if(this.matchSK('arrayInequalityL', match.groups.opl) && this.matchSK('inequalityL', match.groups.opr))
+			return this.processArrayColumn("<>", "inequality", match.groups?.name, value);
+		
+		// LIKE OPERATORS
+		else if(this.matchSK('arrayLikeL', match.groups.opl) && this.matchSK('arrayLikeR', match.groups.opr))
+			return this.processArrayColumn("~~", "like", match.groups?.name, value);
+		else if(this.matchSK('arraySoftLikeL', match.groups.opl) && this.matchSK('arraySoftLikeR', match.groups.opr))
+			return this.processArrayColumn("~~*", "like", match.groups?.name, value);
+		else if(this.matchSK('arrayDislikeL', match.groups.opl) && this.matchSK('arrayDislikeR', match.groups.opr))
+			return this.processArrayColumn("!~~", "like", match.groups?.name, value);
+		else if(this.matchSK('arraySoftDislikeL', match.groups.opl) && this.matchSK('arraySoftDislikeR', match.groups.opr))
+			return this.processArrayColumn("!~~*", "like", match.groups?.name, value);
+		else if(this.matchSK('arrayRegexLikeL', match.groups.opl) && this.matchSK('arrayRegexLikeR', match.groups.opr))
+			return this.processArrayColumn("~", "like", match.groups?.name, value);
+		else if(this.matchSK('arraySoftRegexLikeL', match.groups.opl) && this.matchSK('arraySoftRegexLikeR', match.groups.opr))
+			return this.processArrayColumn("~*", "like", match.groups?.name, value);
+
+		// COMPARE OP
+		else if(this.matchSK('arraySoftSuperiorL', match.groups.opl) && this.matchSK('arraySoftSuperiorR', match.groups.opr))
+			return this.processArrayColumn(">=", "compare", match.groups?.name, value);
+		else if(this.matchSK('arraySoftInferiorL', match.groups.opl) && this.matchSK('arraySoftInferiorR', match.groups.opr))
+			return this.processArrayColumn("<=", "compare", match.groups?.name, value);
+		else if(this.matchSK('arrayStrictSuperiorL', match.groups.opl) && this.matchSK('arrayStrictSuperiorR', match.groups.opr))
+			return this.processArrayColumn(">", "compare", match.groups?.name, value);
+		else if(this.matchSK('arrayStrictInferiorL', match.groups.opl) && this.matchSK('arrayStrictInferiorR', match.groups.opr))
+			return this.processArrayColumn("<", "compare", match.groups?.name, value);
 	}
 
 
 	/**
-	 * Helper to avoid rewriting all conditions and process each operator
+	 * Helper to handle case targeted column is not an array
 	 * @param skKey 
 	 * @param op 
 	 * @param arrMethod Defines the method in front of array
@@ -306,13 +368,13 @@ class WhereParser{
 				return this.where += `${name} ${op} value`;
 		// Single value
 			else
-				return this.where += `${name} ${op} $${this.pushValue(value)}`;
+				return this.where += `${name} ${op} ${this.pushValue(value)}`;
 		// Single value also
 		else if (value.length == 1)
-			return this.where += `${name} ${op} $${this.pushValue(value[0])}`;
+			return this.where += `${name} ${op} ${this.pushValue(value[0])}`;
 		// Array case
 		else
-			return this.where += value.includes(null) ? `( ${name} ${nullOP} NULL AND ${name} ${op} ${arrMethod}($${this.pushValue(value)}) )` : `${name} ${op} ${arrMethod}($${this.pushValue(value)})`;
+			return this.where += value.includes(null) ? `( ${name} ${nullOP} NULL AND ${name} ${op} ${arrMethod}(${this.pushValue(value)}) )` : `${name} ${op} ${arrMethod}(${this.pushValue(value)})`;
 	}
 
 
