@@ -1,5 +1,5 @@
 
-import {Arrayed, KeysOfType, KeysNotOfType, Table, Environment, FlatEnv, Obj, UnArraying, Column} from '../types';
+import {Arrayed, KeysOfType, KeysNotOfType, Table, Environment, FlatEnv, Obj, UnArraying, Column, col} from '../types';
 import { DefaultSyntaxKeys, SKArrayCompareOPL, SKArrayCompareOPR, SKArrayEqualityOPL, SKArrayEqualityOPR, SKArrayLikeOPL, SKArrayLikeOPR, SKCompareOPL, SKCompareOPR, SKEqualityOP, SKEqualityOPL, SKEqualityOPR, SKLikeOPL, SKLikeOPR, SyntaxKeys, SyntaxKeysConstant, VerboseSyntaxKeys } from '../syntaxkeys';
 
 /****************
@@ -71,6 +71,15 @@ Will translate in :
 	type KeysOfNumberArray<T> = KeysOfType<T, number[]>;
 
 
+
+	/** --------- Plain Properties ------------- */
+	type PlainKey<
+		T extends Table,
+	> = {
+		[k in keyof T]? : Arrayed<T[k] | null> | (Column<KeysOfType<T, Arrayed<T[k]>> & (string & {})>);
+	}
+
+
 	/** --------- WRAP Properties ------------- */
 
 	// { [wrappedkey] : Anything}
@@ -79,7 +88,7 @@ Will translate in :
 		K extends keyof T,
 		Prefix extends string,
 		Suffix extends string
-	> = {	[k in K & string as `${Prefix}${k}${Suffix}`]? : Arrayed<T[k] | null> | Column<KeysOfType<T, Arrayed<T[k]>> & string>; };
+	> = {	[k in K & string as `${Prefix}${k}${Suffix}`]? : Arrayed<T[k] | null> | (Column<KeysOfType<T, Arrayed<T[k]>> & (string & {})>) ; };
 
 	// { [prefixcolumn] : Anything but array }
 	type WrapKeyNoArrayValue<
@@ -87,7 +96,7 @@ Will translate in :
 		K extends keyof T,
 		Prefix extends string,
 		Suffix extends string
-	> = { [k in K & string as `${Prefix}${k}${Suffix}`]? : UnArraying<T[k]> | null | Column<KeysOfType<T, UnArraying<T[k]>> & string>; };
+	> = { [k in K & string as `${Prefix}${k}${Suffix}`]? : UnArraying<T[k]> | null | KeysOfType<T, UnArraying<T[k]>>; };
 
 
 
@@ -109,15 +118,6 @@ Will translate in :
 
 
 
-	/** --------- Base Properties ------------- */
-	type BaseProp<
-		T extends Table,
-
-		SK extends SyntaxKeys
-	> = {
-		[k in keyof T]? : Arrayed<T[k] | null> | FlatEnvWhere<T, SK>[];
-	}
-
 
 // TODO Accept key of same type (other table column)
 // TODO Accept simple equality on array ?
@@ -127,7 +127,7 @@ Will translate in :
 
 		SK extends SyntaxKeys
 	> =
-		BaseProp<T, SK>
+		PlainKey<T>
 		& WrapKeyArrayedValue<T, keyof T, SKEqualityOPL<SK>, SKEqualityOPR<SK>>									// =, !=
 		& WrapKeyArrayedValue<T, KeysOfNumber<T>, SKCompareOPL<SK>, SKCompareOPR<SK>>							// >, >=, <, ≤ on non-array number
 		& WrapKeyArrayedValue<T, KeysOfString<T>, SKLikeOPL<SK>, SKLikeOPR<SK>>									// LIKE operators on string
@@ -719,4 +719,8 @@ type ENV = {
 		a4 : number;
 	}
 };
+
+let t : Where<ENV, DefaultSyntaxKeys> = {
+	"table4.a4" : col('table1.b1'),
+}
 
