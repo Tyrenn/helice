@@ -38,6 +38,8 @@ export type SyntaxKeys = {
 	softDislikeR : string;
 	regexLikeL : string;
 	regexLikeR : string;
+	softRegexLikeL : string;
+	softRegexLikeR : string;
 	arrayLikeL : string;
 	arrayLikeR : string;
 	arraySoftLikeL : string;
@@ -48,6 +50,8 @@ export type SyntaxKeys = {
 	arraySoftDislikeR : string;
 	arrayRegexLikeL : string;
 	arrayRegexLikeR : string;
+	arraySoftRegexLikeL : string;
+	arraySoftRegexLikeR : string;
 
 	// Equality OP = <> !=
 	equalityL : string;
@@ -80,15 +84,20 @@ export type SyntaxKeys = {
 };
 
 
-export type SKLikeOP<SK extends SyntaxKeys> = SK["likeL" | "likeR" | "softLikeL" | "softLikeR" | "dislikeL" | "dislikeR" | "softDislikeL" | "softDislikeR" | "regexLikeL" | "regexLikeR"]; 
-export type SKArrayLikeOP<SK extends SyntaxKeys> = SK["arrayLikeL" |"arrayLikeR" |"arraySoftLikeL" |"arraySoftLikeR" |"arrayDislikeL" |"arrayDislikeR" |"arraySoftDislikeL" |"arraySoftDislikeR" |"arrayRegexLikeL" |"arrayRegexLikeR"];
+export type SKLikeOPL<SK extends SyntaxKeys> = SK["likeL" | "softLikeL" | "dislikeL" | "softDislikeL" | "regexLikeL" | "softRegexLikeL"]; 
+export type SKLikeOPR<SK extends SyntaxKeys> = SK["likeR" | "softLikeR" | "dislikeR" | "softDislikeR" | "regexLikeR" | "softRegexLikeR"]; 
+export type SKArrayLikeOPL<SK extends SyntaxKeys> = SK["arrayLikeL" |"arraySoftLikeL" | "arrayDislikeL" | "arraySoftDislikeL" | "arrayRegexLikeL" | "arraySoftRegexLikeL" ];
+export type SKArrayLikeOPR<SK extends SyntaxKeys> = SK["arrayLikeR" |"arraySoftLikeR" | "arrayDislikeR" | "arraySoftDislikeR" | "arrayRegexLikeR" | "arraySoftRegexLikeR" ];
 
 export type SKEqualityOPL<SK extends SyntaxKeys> = SK[ "equalityL" | "inequalityL" ];
 export type SKEqualityOPR<SK extends SyntaxKeys> = SK[ "equalityR" | "inequalityR" ];
-export type SKArrayEqualityOP<SK extends SyntaxKeys> = SK[ "arrayEqualityL" | "arrayEqualityR" | "arrayInequalityL" | "arrayInequalityR" ];
+export type SKArrayEqualityOPL<SK extends SyntaxKeys> = SK[ "arrayEqualityL" | "arrayInequalityL"];
+export type SKArrayEqualityOPR<SK extends SyntaxKeys> = SK[ "arrayEqualityR" | "arrayInequalityR" ];
 
-export type SKCompareOP<SK extends SyntaxKeys> = SK["softSuperiorL" | "softSuperiorR" | "softInferiorL" | "softInferiorR" | "strictSuperiorL" | "strictSuperiorR" | "strictInferiorL" | "strictInferiorR"]; 
-export type SKArrayCompareOP<SK extends SyntaxKeys> = SK["arraySoftSuperiorL" | "arraySoftSuperiorR" | "arraySoftInferiorL" | "arraySoftInferiorR" | "arrayStrictSuperiorL" | "arrayStrictSuperiorR" | "arrayStrictInferiorL" | "arrayStrictInferiorR"]; 
+export type SKCompareOPL<SK extends SyntaxKeys> = SK[ "softSuperiorL" | "softInferiorL" | "strictSuperiorL" | "strictInferiorL" ]; 
+export type SKCompareOPR<SK extends SyntaxKeys> = SK[ "softSuperiorR" | "softInferiorR" | "strictSuperiorR" | "strictInferiorR" ]; 
+export type SKArrayCompareOPL<SK extends SyntaxKeys> = SK[ "arraySoftSuperiorL" | "arraySoftInferiorL" | "arrayStrictSuperiorL" | "arrayStrictInferiorL" ]; 
+export type SKArrayCompareOPR<SK extends SyntaxKeys> = SK[ "arraySoftSuperiorR" | "arraySoftInferiorR" | "arrayStrictSuperiorR" | "arrayStrictInferiorR" ]; 
 
 
 
@@ -113,26 +122,63 @@ export type SyntaxKeysConstant = {
 	jsonR : string;
 	rawL : string;
 	rawR : string;
-
-	// Operators
 	tsqueryL : string;
 	tsqueryR : string;
+
+	// String Like OP
 	likeL : string | string[];
 	likeR : string | string[];
+	softLikeL : string | string[];
+	softLikeR : string | string[];
+	dislikeL : string | string[];
+	dislikeR : string | string[];
+	softDislikeL : string | string[];
+	softDislikeR : string | string[];
+	regexLikeL : string | string[];
+	regexLikeR : string | string[];
+	softRegexLikeL : string | string[];
+	softRegexLikeR : string | string[];
+	arrayLikeL : string | string[];
+	arrayLikeR : string | string[];
+	arraySoftLikeL : string | string[];
+	arraySoftLikeR : string | string[];
+	arrayDislikeL : string | string[];
+	arrayDislikeR : string | string[];
+	arraySoftDislikeL : string | string[];
+	arraySoftDislikeR : string | string[];
+	arrayRegexLikeL : string | string[];
+	arrayRegexLikeR : string | string[];
+	arraySoftRegexLikeL : string | string[];
+	arraySoftRegexLikeR : string | string[];
+
+	// Equality OP =
 	equalityL : string | string[];
 	equalityR : string | string[];
 	inequalityL : string | string[];
 	inequalityR : string | string[];
-	compareL : string | string[];
-	compareR : string | string[];
-	arrayLikeL : string | string[];
-	arrayLikeR : string | string[];
 	arrayEqualityL : string | string[];
 	arrayEqualityR : string | string[];
 	arrayInequalityL : string | string[];
 	arrayInequalityR : string | string[];
-	arrayCompareL: string | string[];
-	arrayCompareR: string | string[];
+
+
+	// Comparison OP >
+	softSuperiorL : string | string[];
+	softSuperiorR : string | string[];
+	softInferiorL : string | string[];
+	softInferiorR : string | string[];
+	strictSuperiorL : string | string[];
+	strictSuperiorR : string | string[];
+	strictInferiorL : string | string[];
+	strictInferiorR : string | string[];
+	arraySoftSuperiorL : string | string[];
+	arraySoftSuperiorR : string | string[];
+	arraySoftInferiorL : string | string[];
+	arraySoftInferiorR : string | string[];
+	arrayStrictSuperiorL : string | string[];
+	arrayStrictSuperiorR : string | string[];
+	arrayStrictInferiorL : string | string[];
+	arrayStrictInferiorR : string | string[];
 }
 
 
@@ -160,25 +206,59 @@ export const DefaultSyntaxKeys = {
 	jsonR : "",
 	rawL : "sql:",
 	rawR : "",
+	tsqueryL: '@@:',
+	tsqueryR: '',
 
-	likeL : ['~~:', '~~*:', '!~~:', '!~~*:', '~:', '~*:'],
-	likeR : '',
-	equalityL : '=:',
-	equalityR : '',
-	inequalityL : ['<>:', '!=:'],
-	inequalityR : '',
-	compareL : ['>:', '>=:', '<:', '<=:'],
-	compareR : '',
-	arrayLikeL : ['[~~]:', '[~~*]:', '[!~~]:', '[!~~*]:', '[~]:', '[~*]:'],
-	arrayLikeR : '',
-	arrayEqualityL : '[=]:',
-	arrayEqualityR : '',
-	arrayInequalityL : ['[<>]:', '[!=]:'],
-	arrayInequalityR : '',
-	arrayCompareL :  ['[>]:', '[>=]:', '[<]:', '[<=]:'],
-	arrayCompareR : '',
-	tsqueryL : "@@:",
-	tsqueryR : "",
+	likeL: '~~:',
+	likeR: '',
+	softLikeL: '~~*:',
+	softLikeR: '',
+	dislikeL: '!~~:',
+	dislikeR: '',
+	softDislikeL: '!~~*:',
+	softDislikeR: '',
+	regexLikeL: '~:',
+	regexLikeR: '',
+	softRegexLikeL: '~*:',
+	softRegexLikeR: '',
+	arrayLikeL: '[~~]:',
+	arrayLikeR: '',
+	arraySoftLikeL: '[~~*]:', 
+	arraySoftLikeR: '',
+	arrayDislikeL: '[!~~]:',
+	arrayDislikeR: '',
+	arraySoftDislikeL: '[!~~*]:', 
+	arraySoftDislikeR: '',
+	arrayRegexLikeL: '[~]:',
+	arrayRegexLikeR: '',
+	arraySoftRegexLikeL: '[~*]:', 
+	arraySoftRegexLikeR: '',
+
+	equalityL: '=:',
+	equalityR: '',
+	inequalityL: ['<>:', '!=:'],
+	inequalityR: '',
+	arrayEqualityL: '[=]:',
+	arrayEqualityR: '',
+	arrayInequalityL: ['[<>]:', '[!=]:'],
+	arrayInequalityR: '',
+
+	softSuperiorL: '>=:',
+	softSuperiorR: '',
+	softInferiorL: '<=:',
+	softInferiorR: '',
+	strictSuperiorL: '>:',
+	strictSuperiorR: '',
+	strictInferiorL: '<:',
+	strictInferiorR : '',
+	arraySoftSuperiorL: '[>=]:',
+	arraySoftSuperiorR: '',
+	arraySoftInferiorL: '[<=]:',
+	arraySoftInferiorR: '',
+	arrayStrictSuperiorL: '[>]:',
+	arrayStrictSuperiorR: '',
+	arrayStrictInferiorL: '[<]:',
+	arrayStrictInferiorR: '',
 } as const satisfies SyntaxKeysConstant;
 
 export type DefaultSyntaxKeys = ToSyntaxKey<typeof DefaultSyntaxKeys> & {};
