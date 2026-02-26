@@ -1,6 +1,6 @@
 
 import {Arrayed, KeysOfType, KeysNotOfType, Table, Environment, FlatEnv, Obj, UnArraying, Column, col} from '../types';
-import { DefaultSyntaxKeys, SKArrayCompareOPL, SKArrayCompareOPR, SKArrayEqualityOPL, SKArrayEqualityOPR, SKArrayLikeOPL, SKArrayLikeOPR, SKCompareOPL, SKCompareOPR, SKEqualityOP, SKEqualityOPL, SKEqualityOPR, SKLikeOPL, SKLikeOPR, SyntaxKeys, SyntaxKeysConstant, VerboseSyntaxKeys } from '../syntaxkeys';
+import { DefaultSyntaxKeys, SKArrayCompareOPL, SKArrayCompareOPR, SKArrayEqualityOPL, SKArrayEqualityOPR, SKArrayLikeOPL, SKArrayLikeOPR, SKCompareOPL, SKCompareOPR, SKEqualityOPL, SKEqualityOPR, SKLikeOPL, SKLikeOPR, SyntaxKeys, SyntaxKeysConstant, VerboseSyntaxKeys } from '../syntaxkeys';
 
 /****************
 		WHERE
@@ -127,12 +127,12 @@ Will translate in :
 
 		SK extends SyntaxKeys
 	> =
-		PlainKey<T>
-		& WrapKeyArrayedValue<T, keyof T, SKEqualityOPL<SK>, SKEqualityOPR<SK>>									// =, !=
+		WrapKeyArrayedValue<T, KeysOfNonArray<T>, '', ''>	// TODO SHould not be all plain keys, otherwise how we know array ?
+		& WrapKeyArrayedValue<T, KeysOfNonArray<T>, SKEqualityOPL<SK>, SKEqualityOPR<SK>>									// =, !=
 		& WrapKeyArrayedValue<T, KeysOfNumber<T>, SKCompareOPL<SK>, SKCompareOPR<SK>>							// >, >=, <, ≤ on non-array number
 		& WrapKeyArrayedValue<T, KeysOfString<T>, SKLikeOPL<SK>, SKLikeOPR<SK>>									// LIKE operators on string
-		& WrapKeyNoArrayValue<T, KeysOfArray<T>, SKArrayEqualityOPL<SK>, SKArrayEqualityOPR<SK>>			// arrays operators [=],[!],[]… on arrays
-		& WrapKeyNoArrayValue<T, KeysOfNumberArray<T>, SKArrayCompareOPR<SK>, SKArrayCompareOPR<SK>>		// >, >=, <, ≤ on number[]
+		& WrapKeyArrayedValue<T, KeysOfArray<T>, SKArrayEqualityOPL<SK>, SKArrayEqualityOPR<SK>>			// arrays operators [=],[!],[]… on arrays
+		& WrapKeyNoArrayValue<T, KeysOfNumberArray<T>, SKArrayCompareOPL<SK>, SKArrayCompareOPR<SK>>		// >, >=, <, ≤ on number[]
 		& WrapKeyNoArrayValue<T, KeysOfStringArray<T>, SKArrayLikeOPL<SK>, SKArrayLikeOPR<SK>>				// LIKE operators on string[]
 		& TSQueryProp<T, SK>		 																								// @@:tsquery
 		& { [k in `${SK["andGroup"]}${string}`]? : FlatEnvWhere<T, SK>[]}											// nested AND
@@ -227,7 +227,9 @@ class WhereParser{
 	readonly SK : SyntaxKeysConstant;
 	
 	readonly VALUE_REGEX : RegExp;
-	readonly ARRAY_VALUE_REGEX : RegExp;
+	readonly ARRAY_REGEX : RegExp;
+	readonly TSQUERY_REGEX : RegExp;
+	readonly AND_REGEX : RegExp;
 
 	constructor(sk : SyntaxKeysConstant){
 		this.SK = sk;
@@ -241,7 +243,7 @@ class WhereParser{
 				[ this.SK['likeR'], this.SK['softLikeR'], this.SK['dislikeR'], this.SK['softDislikeR'], this.SK['regexLikeR'], this.SK['softRegexLikeR'], this.SK['equalityR'], this.SK['inequalityR'], this.SK['softSuperiorR'], this.SK['softInferiorR'], this.SK['strictSuperiorR'], this.SK['strictInferiorR']]
 					.flatMap(v => Array.isArray(v) ? v : [v]).map(v => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
 			})$`);
-		this.ARRAY_VALUE_REGEX = new RegExp(
+		this.ARRAY_REGEX = new RegExp(
 			String.raw`^(?<opl>(?:${
 				[ this.SK['arrayLikeL'], this.SK['arraySoftLikeL'], this.SK['arrayDislikeL'], this.SK['arraySoftDislikeL'], this.SK['arrayRegexLikeL'], this.SK['arraySoftRegexLikeL'], this.SK['arrayEqualityL'], this.SK['arrayInequalityL'], this.SK['arraySoftSuperiorL'], this.SK['arraySoftInferiorL'], this.SK['arrayStrictSuperiorL'], this.SK['arrayStrictInferiorL']]
 					.flatMap(v => Array.isArray(v) ? v : [v]).map(v => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
@@ -249,9 +251,17 @@ class WhereParser{
 				[ this.SK['arrayLikeR'], this.SK['arraySoftLikeR'], this.SK['arrayDislikeR'], this.SK['arraySoftDislikeR'], this.SK['arrayRegexLikeR'], this.SK['arraySoftRegexLikeR'], this.SK['arrayEqualityR'], this.SK['arrayInequalityR'], this.SK['arraySoftSuperiorR'], this.SK['arraySoftInferiorR'], this.SK['arrayStrictSuperiorR'], this.SK['arrayStrictInferiorR']]
 					.flatMap(v => Array.isArray(v) ? v : [v]).map(v => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
 			})$`);
+		this.TSQUERY_REGEX = new RegExp(
+			String.raw`^(?<opl>(?:${
+				[ this.SK['tsqueryL'] ].flatMap(v => Array.isArray(v) ? v : [v]).map(v => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
+			}))(?<name>.+)(?<opr>${
+				[ this.SK['tsqueryR'] ].flatMap(v => Array.isArray(v) ? v : [v]).map(v => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
+			})$`);
+		this.AND_REGEX = new RegExp(
+			String.raw`^(?:${
+				[ this.SK['andGroup'] ].flatMap(v => Array.isArray(v) ? v : [v]).map(v => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
+			})(?<name>.+)$`);
 	}
-
-// TODO WARNING change for a class column to avoid injection
 
 	pushValue(v : any) : string {
 		if(Array.isArray(v) && v.some(s => s instanceof Column)) //Check if array and if contains a Column instance
@@ -289,7 +299,7 @@ class WhereParser{
 			else if(value.length == 1)
 				return this.where += `${this.pushValue(value[0])} ${op} ALL(${name})`
 			else
-				return this.where += `( ${value.filter(v => v !== null).map(v => `${this.pushValue(value[0])} ${op} ALL(${name})`).join(' AND ')} ${value.includes(null) ? `AND ${name} IS NOT NULL ` : ''})`
+				return this.where += `( ${value.filter(v => v !== null).map(v => `${this.pushValue(v)} ${op} ALL(${name})`).join(' AND ')} ${value.includes(null) ? `AND ${name} IS NOT NULL ` : ''})`
 
 		else if(opType === 'like')
 			if(!Array.isArray(value))
@@ -306,8 +316,20 @@ class WhereParser{
 				return
 	}
 
-	private parseArrayValue(key : string, value : any){
-		const match = key.match(this.ARRAY_VALUE_REGEX);
+
+	/**
+	* Transforms [] props
+		[]:arr : [1, 2] 			=> 	arr = [1,2]
+		[!]:arr :	[1, 2] 		=> 	arr <> [1,2]
+		[=]:arr : [1,2]  			=>  	(1 = ANY(arr) OR 2 = ANY(arr))
+		[=]:arr : 1 				=> 	1 = ANY(arr)
+		[<>]:arr : [1,2] 			=> 	(1 <> ALL(arr) OR 2 <> ALL(arr))
+		[<>]:arr : 1 				=> 	1 <> ALL(arr)
+		[~~*]:arr : "test"		=>		"test" ~~* array_to_string(arr, ' ')
+		[~~]:arr : [1, 2, null]		=>		(i is NULL OR 1 ~~ array_to_string(arr, ' ') OR 2 ~~ array_to_string(arr, ' '))
+	*/
+	private parseArray(key : string, value : any){
+		const match = key.match(this.ARRAY_REGEX);
 
 		if (!match || !match.groups?.name)
 			return;
@@ -354,8 +376,6 @@ class WhereParser{
 	 * @param name 
 	 * @param value 
 	 * @returns 
-
-	 * TODO Process key of same type (other columns) INSIDE array
 	 */
 	private processValueColumn(op : string, arrMethod : "ANY" | "ALL", nullOP : "IS" | "IS NOT", name : string, value : any){
 
@@ -378,6 +398,18 @@ class WhereParser{
 	}
 
 
+   /**
+	 * Transforms sign:prop and prop
+		=:i : 1 				=> 		i = 1
+		<>:i : null 		=> 		i is not NULL
+		i : 2					=> 		i = 2
+		<:i : 2				=> 		i = 2
+		i : [1,2]			=> 		i = ANY([1,2])
+		i : [1, null]		=>			(i is NULL OR i = ANY([1]))
+		<>:i : [1, null]	=>			(i is not NULL AND i <> ALL([1]))
+		~~*:i : "test"		=>			i ~~* "test"
+		~~:i : [1, null]	=>			(i is NULL OR i ~~ array_to_string([1], ' '))
+	 */
 	private parseValue(key : string, value : any) {
 		const match = key.match(this.VALUE_REGEX);
 
@@ -416,221 +448,64 @@ class WhereParser{
 	}
 
 
+
+	private parseTSQuery(key : string, value : any){
+		const match = key.match(this.TSQUERY_REGEX);
+
+		if (!match || !match.groups?.name)
+			return;
+
+		this.from += `to_tsquery(${this.pushValue(value.language)}, ${this.pushValue(value.value)}) as ${match.groups.name.replace('.', '_')}_query, ts_rank_cd(${this.pushValue(value.weights ?? [0.1, 0.2, 0.4, 1.0])}, ${match.groups.name}, ${match.groups.name.replace('.', '_')}_query, ${value.flag ?? '32'}) AS ${match.groups.name.replace('.', '_')}_rank,`;
+		this.where += `${match.groups.name.replace('.', '_')}_query @@ ${match.groups.name}`;
+	}
+
+
+	private parseAND(key : string, value : any){
+		const match = key.match(this.AND_REGEX);
+
+		if (!match || !match.groups?.name)
+			return;
+		
+		this.parse(value, this.idx);
+	}
+
 	parse(where: Obj | Obj[], idx : number = 1){
 		this.idx = idx;
 		this.values = [];
 
+		if(Array.isArray(where)){
+				this.where += ' ( ';
+			let currentDollarIdx = this.idx;
+			for(const w of where){
+
+				if(this.idx > currentDollarIdx) // At least one statement has been added
+					this.where += ` OR `;
+
+				this.where += ' ( ';
+				this.parse(w, this.idx)
+				this.where += ' ) ';
+				currentDollarIdx = this.idx;
+			}
+			return;
+		}
+
+		for(const prop in where){
+			if(where[prop] === undefined)
+					continue;
+
+			this.parseAND(prop, where[prop]);
+			this.parseTSQuery(prop, where[prop]);
+			this.parseArray(prop, where[prop]);
+			this.parseValue(prop, where[prop]);
+
+			this.where += ' AND ';
+		}
 		
-	}
-}
+		this.where = this.where.slice(0,-5);
 
-
-
-class WhereSQLResult{
-	where: string = '';
-	from: string = '';
-	dollarIdx: number = 1;
-
-	values: any[] = [];
-
-	constructor(dollarIdx : number = 1){
-		this.dollarIdx = dollarIdx;
-	}
-
-	pushValue(v : any) : string{
-		this.values.push(v);
-		return `${this.dollarIdx++}`;
-	}
-}
-
-
-
-   /**
-	 * Transforms sign:prop and prop
-		=:i : 1 				=> 		i = 1
-		<>:i : null 		=> 		i is not NULL
-		i : 2					=> 		i = 2
-		<:i : 2				=> 		i = 2
-		i : [1,2]			=> 		i = ANY([1,2])
-		i : [1, null]		=>			(i is NULL OR i = ANY([1]))
-		<>:i : [1, null]	=>			(i is not NULL AND i <> ALL([1]))
-		~~*:i : "test"		=>			i ~~* "test"
-		~~:i : [1, null]	=>			(i is NULL OR i ~~ array_to_string([1], ' '))
-	 */
-function whereValueToSQL(key : string, value : any, result : WhereSQLResult, sk : SyntaxKeysConstant){
-	const keyRgx = new RegExp(
-		String.raw`^(?:(?<op>${sk['']}*)])(?<name>.+)(${}$`	// Match `op:name` and `name`
-	);
-	const match = key.match(keyRgx);
-
-	if (!match || !match.groups?.name)
 		return;
-
-	if (!match.groups.op || match.groups.op === '=')
-		if (value === null)
-			return result.where += `${match.groups.name} IS NULL`;
-		else if (!Array.isArray(value))
-			return result.where += `${match.groups.name} = $${result.pushValue(value)}`;
-		else if (value.length == 1)
-			return result.where += `${match.groups.name} = $${result.pushValue(value[0])}`;
-		else
-			return result.where += value.includes(null) ? `( ${match.groups.name} IS NULL OR ${match.groups.name} = ANY($${result.pushValue(value[0])}) )` : `${match.groups.name} = ANY($${result.pushValue(value[0])})`;
-
-	else if(['<>', "!="].includes(match.groups.op))
-		if (value === null)
-			return result.where += `${match.groups.name} IS NOT NULL`;
-		else if (!Array.isArray(value))
-			return result.where += `${match.groups.name} <> $${result.pushValue(value)}`;
-		else if (value.length == 1)
-			return result.where += `${match.groups.name} <> $${result.pushValue(value[0])}`;
-		else
-			return result.where += value.includes(null) ? `( ${match.groups.name} IS NOT NULL AND ${match.groups.name} <> ALL($${result.pushValue(value[0])}) )` : `${match.groups.name} <> ALL($${result.pushValue(value[0])})`;
-
-	else if(["~~", "~~*", "!~~", "!~~*"].includes(match.groups.op))
-		if (value === null)
-			return result.where += `${match.groups.name} IS NOT NULL`;
-		else if (!Array.isArray(value))
-			return result.where += `${match.groups.name} ${match.groups.op} $${result.pushValue(value)}`;
-		else if (value.length == 1)
-			return result.where += `${match.groups.name} ${match.groups.op} $${result.pushValue(value[0])}`;
-		else
-			return result.where += value.includes(null) ? `( ${match.groups.name} IS NOT NULL OR ${match.groups.name} ${match.groups.op} ANY($${result.pushValue(value[0])}) )` : `${match.groups.name} ${match.groups.op} ANY($${result.pushValue(value[0])})`;
-
-	else
-		if (value === null)
-			return result.where += `${match.groups.name} IS NOT NULL`;
-		else if (!Array.isArray(value))
-			return result.where += `${match.groups.name} ${match.groups.op} $${result.pushValue(value)}`;
-		else if (value.length == 1)
-			return result.where += `${match.groups.name} ${match.groups.op} $${result.pushValue(value[0])}`;
-		else
-			return result.where += value.includes(null) ? `( ${match.groups.name} IS NOT NULL AND ${match.groups.name} ${match.groups.op} ALL($${result.pushValue(value[0])}) )` : `${match.groups.name} ${match.groups.op} ALL($${result.pushValue(value[0])})`;
-	}
-
-
-/**
- * Transforms [] props
-	[]:arr : [1, 2] 			=> 	arr = [1,2]
-	[!]:arr :	[1, 2] 		=> 	arr <> [1,2]
-	[=]:arr : [1,2]  			=>  	(1 = ANY(arr) OR 2 = ANY(arr))
-	[=]:arr : 1 				=> 	1 = ANY(arr)
-	[<>]:arr : [1,2] 			=> 	(1 <> ALL(arr) OR 2 <> ALL(arr))
-	[<>]:arr : 1 				=> 	1 <> ALL(arr)
-	[~~*]:arr : "test"		=>		"test" ~~* array_to_string(arr, ' ')
-	[~~]:arr : [1, 2, null]		=>		(i is NULL OR 1 ~~ array_to_string(arr, ' ') OR 2 ~~ array_to_string(arr, ' '))
- */
-function arrayWhereValueToSQL(key : string, value : any, result : WhereSQLResult){
-	const keyRgx = new RegExp(
-		String.raw`^\[(?<op>[^:\]]*)]:(?<name>.+)$`	// Match `[op]:name`
-	);
-	const match = key.match(keyRgx);
-
-	if (!match || !match.groups?.op || !match.groups?.name)
-		return ''
-
-	// []:arr : [1, 2] => arr = [1,2]
-	if(match.groups.op === "")
-		return result.where += value === null ?  `${match.groups.name} is NULL` : `${match.groups?.name} = $${result.pushValue(value)}`;
-
-	//[!]:arr :	[1, 2] => arr != [1,2]
-	else if(match.groups.op === "")
-		return result.where += value === null ?  `${match.groups.name} is not NULL` : `${match.groups?.name} <> $${result.pushValue(value)}`;
-
-
-	// [=]:arr : 1 => 1 = ANY(arr)
-	// [=]:arr : [1] => 1 = ANY(arr)
-	// [=]:arr : [1,2] => (1 = ANY(arr) OR 2 = ANY(arr))
-	else if(match.groups.op === "="){
-		if (!Array.isArray(value))
-			return result.where += `$${result.pushValue(value)} = ANY(${match.groups.name})`;
-		else if(value.length == 1)
-			return result.where += `$${result.pushValue(value[0])} = ANY(${match.groups.name})`;
-		else
-			return result.where += `( $${value.filter(v => v !== null).map(v => `$${result.pushValue(v)} = ANY(${match.groups!.name}`).join(' OR ')} ${value.includes(null) ? `OR ${match.groups.name} IS NULL ` : ''})` ;
-	}
-
-	// [~~*]:arr : ["test"] => "test" ~~* array_to_string(arr, ' ')
-	// [!~~]:arr : 1 => (1 ~~ array_to_string(arr, ' ') OR 2 ~~ array_to_string(arr, ' '))
-	// [~~]:arr : [1,2, null] => (i is NULL OR 1 ~~ array_to_string(arr, ' ') OR 2 ~~ array_to_string(arr, ' '))
-	else if(["~~", "~~*", "!~~", "!~~*"].includes(match.groups.op)){
-		if(!Array.isArray(value))
-			return result.where += `array_to_string(${match.groups.name}, ' ') ${match.groups.op} $${result.pushValue(value)}`;
-		else if(value.length == 1)
-			return result.where += `array_to_string(${match.groups.name}, ' ') ${match.groups.op} $${result.pushValue(value[0])}`;
-		else
-			return result.where += `( ${value.filter(v => v !== null).map(v => `array_to_string(${match.groups!.name}, ' ') ${match.groups!.op} $${result.pushValue(v)}`).join(' OR ')} ${value.includes(null) ? `OR ${match.groups.name} IS NULL ` : ''} )`;
-	}
-
-	// [<>]:arr : 1 => 1 <> ALL(arr)
-	else{
-		if(!Array.isArray(value))
-			return result.where += `$${result.pushValue(value)} ${match.groups.op} ALL(${match.groups.name})`
-		else if(value.length == 1)
-			return result.where += `$${result.pushValue(value[0])} ${match.groups.op} ALL(${match.groups.name})`
-		else
-			return result.where += `( ${value.filter(v => v !== null).map(v => `$${result.pushValue(value[0])} ${match.groups!.op} ALL(${match.groups!.name})`).join(' AND ')} ${value.includes(null) ? `AND ${match.groups.name} IS NOT NULL ` : ''})`
 	}
 }
-
-
-function tsQueryValueToSQL(key : string, value : any, result : WhereSQLResult){
-	const keyRgx = new RegExp(
-		String.raw`^\[@@:(?<name>.+)$`	// Match `@@:name`
-	);
-	const match = key.match(keyRgx);
-
-	if (!match || !match.groups?.name)
-		return {};
-
-	result.from += `to_tsquery($${result.pushValue(value.language)}, $${result.pushValue(value.value)}) as ${match.groups.name.replace('.', '_')}_query, ts_rank_cd($${result.pushValue(value.weights ?? [0.1, 0.2, 0.4, 1.0])}, ${match.groups.name}, ${match.groups.name.replace('.', '_')}_query, ${value.flag ?? '32'}) AS ${match.groups.name.replace('.', '_')}_rank,`;
-	result.where += `${match.groups.name.replace('.', '_')}_query @@ ${match.groups.name}`;
-}
-
-
-function wheresToSQL(array : Array<Obj>, result : WhereSQLResult){
-	result.where += ' ( ';
-	let currentDollarIdx = result.dollarIdx;
-	for(const w of array){
-
-		if(result.dollarIdx > currentDollarIdx) // At least one statement has been added
-			result.where += ` OR `;
-
-		result.where += ' ( ';
-		whereToSQL(w, result)
-		result.where += ' ) ';
-		currentDollarIdx = result.dollarIdx;
-	}
-}
-
-
-export function whereToSQL(where: Obj | Obj[], result: WhereSQLResult = new WhereSQLResult(1)): WhereSQLResult {
-	if(Array.isArray(where)){
-		wheresToSQL(where, result);
-		return result;
-	}
-
-	for(const prop in where){
-		if(where[prop] === undefined)
-				continue;
-
-		if (prop.match(new RegExp(String.raw`^&&:.+`)) && Array.isArray(where[prop]))
-			wheresToSQL(where[prop], result);
-		else if (prop.match(new RegExp(String.raw`^&&:.+`)) && !Array.isArray(where[prop]))
-			whereToSQL(where[prop], result);
-		else if (prop.match(new RegExp(String.raw`^@@:.+`)))
-			tsQueryValueToSQL(prop, where[prop], result);
-		else if (prop.match(new RegExp(String.raw`^\[.*\]:.*`)))
-			arrayWhereValueToSQL(prop, where[prop], result);
-		else
-			whereValueToSQL(prop, where[prop], result);
-
-		result.where += ' AND ';
-	}
-	result.where = result.where.slice(0,-5);
-
-	return result;
-}
-
 
 
 /**
@@ -720,7 +595,9 @@ type ENV = {
 	}
 };
 
-let t : Where<ENV, DefaultSyntaxKeys> = {
+let t : Where<ENV, VerboseSyntaxKeys> = {
 	"table4.a4" : col('table1.b1'),
+	"{table1.c1} =": [3, 4],
+	
 }
 

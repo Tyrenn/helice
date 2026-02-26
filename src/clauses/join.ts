@@ -1,5 +1,5 @@
 import { Environment, FlatEnv, KeysNotOfType, KeysOfType, Obj, Prettify, Simplify, StrKeys, Table, TablesWithType} from "../types";
-import { DefaultSyntaxKeys, SyntaxKeys, SyntaxKeysConstant, VerboseSyntaxKeys } from "../syntaxkeys";
+import { DefaultSyntaxKeys, SKCompareOPL, SKCompareOPR, SKEqualityOPL, SKEqualityOPR, SKLikeOPL, SKLikeOPR, SyntaxKeys, SyntaxKeysConstant, VerboseSyntaxKeys } from "../syntaxkeys";
 
 /****************
 		JOIN
@@ -99,9 +99,9 @@ import { DefaultSyntaxKeys, SyntaxKeys, SyntaxKeysConstant, VerboseSyntaxKeys } 
 		SK extends SyntaxKeys = DefaultSyntaxKeys
 	> =
 			{ [l in SK["join"] as l extends `${infer j}` ? j : never]? : "inner" | "left" | "right" | "full"}
-		&	{ [k in StrKeys<Env[TargetTable]> as Env[TargetTable][k] extends (string | number | boolean) ? `${'' | SK["equalityL"]}${k}${'' | SK["equalityR"]}` : never]? : SameTypeColumns<Env, AccessibleTables, TargetTable, k> | (Env[TargetTable][k] extends string ? (Env[TargetTable][k] & (string & {})) : Env[TargetTable][k]) | null }
-		&	{ [k in StrKeys<Env[TargetTable]> as Env[TargetTable][k] extends (number) ? `${SK["compareL"]}${k}${SK["compareR"]}` : never]? : SameTypeColumns<Env, AccessibleTables, TargetTable, k> | number | number[] | null }
-		&	{ [k in StrKeys<Env[TargetTable]> as Env[TargetTable][k] extends (string) ? `${SK["likeL"]}${k}${SK["likeR"]}` : never]? : SameTypeColumns<Env, AccessibleTables, TargetTable, k> | string | string[] | null}
+		&	{ [k in StrKeys<Env[TargetTable]> as Env[TargetTable][k] extends (string | number | boolean) ? `${'' | SKEqualityOPL<SK>}${k}${'' | SKEqualityOPR<SK>}` : never]? : SameTypeColumns<Env, AccessibleTables, TargetTable, k> | (Env[TargetTable][k] extends string ? (Env[TargetTable][k] & (string & {})) : Env[TargetTable][k]) | null }
+		&	{ [k in StrKeys<Env[TargetTable]> as Env[TargetTable][k] extends (number) ? `${SKCompareOPL<SK>}${k}${SKCompareOPR<SK>}` : never]? : SameTypeColumns<Env, AccessibleTables, TargetTable, k> | number | number[] | null }
+		&	{ [k in StrKeys<Env[TargetTable]> as Env[TargetTable][k] extends (string) ? `${SKLikeOPL<SK>}${k}${SKLikeOPR<SK>}` : never]? : SameTypeColumns<Env, AccessibleTables, TargetTable, k> | string | string[] | null}
 
 
 /* =========================================================================
