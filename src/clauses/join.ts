@@ -1,5 +1,6 @@
-import { Environment, FlatEnv, KeysNotOfType, KeysOfType, Obj, Prettify, Simplify, StrKeys, Table, TablesWithType} from "../types";
-import { DefaultSyntaxKeys, SKCompareOPL, SKCompareOPR, SKEqualityOPL, SKEqualityOPR, SKLikeOPL, SKLikeOPR, SyntaxKeys, SyntaxKeysConstant, VerboseSyntaxKeys } from "../syntaxkeys";
+import { col, Environment, FlatEnv, KeysNotOfType, KeysOfType, Obj, Prettify, Simplify, StrKeys, Table, TablesWithoutType, TablesWithType} from "../types";
+import { DefaultSyntaxKeys, SKArrayCompareOPL, SKArrayCompareOPR, SKArrayEqualityOPL, SKArrayEqualityOPR, SKArrayLikeOPL, SKArrayLikeOPR, SKCompareOPL, SKCompareOPR, SKEqualityOPL, SKEqualityOPR, SKLikeOPL, SKLikeOPR, SyntaxKeys, SyntaxKeysConstant, VerboseSyntaxKeys } from "../syntaxkeys";
+import { KeysOfArray, KeysOfNonArray, KeysOfNumber, KeysOfNumberArray, KeysOfString, KeysOfStringArray, WrapKeyArrayedValue, WrapKeyNoArrayValue } from "./common";
 
 /****************
 		JOIN
@@ -59,22 +60,11 @@ import { DefaultSyntaxKeys, SKCompareOPL, SKCompareOPR, SKEqualityOPL, SKEqualit
 		"tableX" : BaseJoinValue
 	*/
 
-	// SameTypeColumns gives all accessible possible column candidate for a join on TargetTable.Column
-	type SameTypeColumns<
-		Env extends Environment,
-		AccessibleTables extends string,
-		TargetTable extends string, 
-		
-		Column extends StrKeys<Env[TargetTable]>
-	> = KeysOfType<FlatEnv<Pick<Env, AccessibleTables>>, Env[TargetTable][Column] & (string | number | boolean)>;
-
 	type JoinStringValue<
 		Env extends Environment,
-		AccessibleTables extends string,
-		TargetTable extends string,
-
-		SK extends SyntaxKeys = DefaultSyntaxKeys
-	> = {[k in StrKeys<Env[TargetTable]>] : Env[TargetTable][k] extends string | number | boolean ? `${k}${SK["defaultJoin" | "innerJoin" | "fullJoin" | "leftJoin" | "rightJoin"]}${SameTypeColumns<Env, AccessibleTables, TargetTable, k> & string}` : never}[StrKeys<Env[TargetTable]>]
+		AccEnv extends Environment,
+		TargetTable extends keyof Env,
+	> = {[k in KeysOfType<Env[TargetTable], string | number | boolean> & string] : `${k} = ${KeysOfType<FlatEnv<AccEnv>, Env[TargetTable][k]> & string}`}[KeysOfType<Env[TargetTable], string | number | boolean> & string]
 
 
 
@@ -91,17 +81,38 @@ import { DefaultSyntaxKeys, SKCompareOPL, SKCompareOPR, SKEqualityOPL, SKEqualit
 	// TODO Add the possibility to join from string column to string[] (ANY operation)
 	// TODO Add the possibility to join from number column to number[] (ANY operation)
 	// TODO Add AND ?
+
+// TODO USE GRAMMAR TO REBUILD ALMOST SAME THAN WHERE
+
 	type JoinObjectValue<
 		Env extends Environment,
-		AccessibleTables extends string,
+		AccEnv extends Environment,			// Why won't start with accessible ?
 		TargetTable extends string,
 
 		SK extends SyntaxKeys = DefaultSyntaxKeys
 	> =
-			{ [l in SK["join"] as l extends `${infer j}` ? j : never]? : "inner" | "left" | "right" | "full"}
-		&	{ [k in StrKeys<Env[TargetTable]> as Env[TargetTable][k] extends (string | number | boolean) ? `${'' | SKEqualityOPL<SK>}${k}${'' | SKEqualityOPR<SK>}` : never]? : SameTypeColumns<Env, AccessibleTables, TargetTable, k> | (Env[TargetTable][k] extends string ? (Env[TargetTable][k] & (string & {})) : Env[TargetTable][k]) | null }
-		&	{ [k in StrKeys<Env[TargetTable]> as Env[TargetTable][k] extends (number) ? `${SKCompareOPL<SK>}${k}${SKCompareOPR<SK>}` : never]? : SameTypeColumns<Env, AccessibleTables, TargetTable, k> | number | number[] | null }
-		&	{ [k in StrKeys<Env[TargetTable]> as Env[TargetTable][k] extends (string) ? `${SKLikeOPL<SK>}${k}${SKLikeOPR<SK>}` : never]? : SameTypeColumns<Env, AccessibleTables, TargetTable, k> | string | string[] | null}
+			{ [k in SK["join"]] : "INNER" | "LEFT" | "RIGHT" | "FULL"}
+		& JoinObjectAnd<Env[TargetTable], FlatEnv<AccEnv>, SK> 
+
+		// &	{ [k in StrKeys<Env[TargetTable]> as Env[TargetTable][k] extends (string | number | boolean) ? `${'' | SKEqualityOPL<SK>}${k}${'' | SKEqualityOPR<SK>}` : never]? : SameTypeColumns<Env, AccessibleTables, TargetTable, k> | (Env[TargetTable][k] extends string ? (Env[TargetTable][k] & (string & {})) : Env[TargetTable][k]) | null }
+		// &	{ [k in StrKeys<Env[TargetTable]> as Env[TargetTable][k] extends (number) ? `${SKCompareOPL<SK>}${k}${SKCompareOPR<SK>}` : never]? : SameTypeColumns<Env, AccessibleTables, TargetTable, k> | number | number[] | null }
+		// &	{ [k in StrKeys<Env[TargetTable]> as Env[TargetTable][k] extends (string) ? `${SKLikeOPL<SK>}${k}${SKLikeOPR<SK>}` : never]? : SameTypeColumns<Env, AccessibleTables, TargetTable, k> | string | string[] | null}
+
+
+	type JoinObjectAnd<
+		T extends Table,
+		A extends Table,
+
+		SK extends SyntaxKeys
+	> = 	WrapKeyArrayedValue<T, KeysOfNonArray<T>, A, '', ''>
+		& 	WrapKeyArrayedValue<T, KeysOfNonArray<T>, A, SKEqualityOPL<SK>, SKEqualityOPR<SK>>									// =, !=
+		& 	WrapKeyArrayedValue<T, KeysOfNumber<T>, A, SKCompareOPL<SK>, SKCompareOPR<SK>>							// >, >=, <, ≤ on non-array number
+		& 	WrapKeyArrayedValue<T, KeysOfString<T>, A, SKLikeOPL<SK>, SKLikeOPR<SK>>									// LIKE operators on string
+		& 	WrapKeyArrayedValue<T, KeysOfArray<T>, A, SKArrayEqualityOPL<SK>, SKArrayEqualityOPR<SK>>			// arrays operators [=],[!],[]… on arrays
+		& 	WrapKeyNoArrayValue<T, KeysOfNumberArray<T>, A, SKArrayCompareOPL<SK>, SKArrayCompareOPR<SK>>		// >, >=, <, ≤ on number[]
+		& 	WrapKeyNoArrayValue<T, KeysOfStringArray<T>, A, SKArrayLikeOPL<SK>, SKArrayLikeOPR<SK>>				// LIKE operators on string[]
+		& 	{ [k in `${SK["andGroup"]}${string}`]? : JoinObjectAnd<T, A, SK>[]}											// nested AND
+
 
 
 /* =========================================================================
@@ -114,10 +125,18 @@ import { DefaultSyntaxKeys, SKCompareOPL, SKCompareOPR, SKEqualityOPL, SKEqualit
 
 		SK extends SyntaxKeys = DefaultSyntaxKeys
 	> =
-		{
-			[table in Extract<TablesWithType<Env, (string | number | boolean)>, string> as `${table}${'' | `${SK["alias"]}${string}`}`]? : JoinStringValue<Env, StrKeys<AccEnv>, table, SK> | JoinObjectValue<Env, StrKeys<AccEnv>, table, SK>
-		}
+			{ [table in TablesWithType<Env, number | string | boolean> & string as `${SK["innerJoin" | "fullJoin" | "leftJoin" | "rightJoin"]}${table & string}${'' | `${SK["alias"]}${string}`}`]? : JoinStringValue<Env, AccEnv, table> }
+		&	{ [table in TablesWithType<Env, number | string | boolean> & string as `${table}${'' | `${SK["alias"]}${string}`}`]? : JoinStringValue<Env, AccEnv, table> | JoinObjectValue<Env, AccEnv, table, SK> }
+		&	{ [table in TablesWithoutType<Env, number | string | boolean> & string as `${table}${'' | `${SK["alias"]}${string}`}`]? : JoinObjectValue<Env, AccEnv, table, SK> }
+		// &
+		// { [table in StrKeys<Env> as (number | string | boolean) extends Env[table][keyof Env[table]] ?  never : `${table}${'' | `${SK["alias"]}${string}`}`]? : JoinObjectValue<Env, AccEnv, table, SK> }
+//	&	{ [table in StrKeys<Env> as `${table}${'' | `${SK["alias"]}${string}`}`]? : JoinObjectValue<Env, AccEnv, table, SK> }
 
+// Using tables with type
+//		{ [table in  (TablesWithType<Env, string | boolean | number>) as table extends string ? `${'' | SK["innerJoin" | "fullJoin" | "leftJoin" | "rightJoin"]}${table}${'' | `${SK["alias"]}${string}`}` : never]? : JoinStringValue<Env, AccEnv, table> }
+
+
+	// TODO ADAPT
 	export type EnvironmentFromJoin<
 		Env extends Environment,
 		AccEnv extends Environment,
@@ -293,6 +312,7 @@ type Table2 = {
 type Table3 = {
 	column31 : Array<number>;
 	column32 : Array<string>;
+//	column33 : number;
 }
 
 type TestEnv = {
@@ -301,16 +321,33 @@ type TestEnv = {
 	table3 : Table3;
 }
 
-const tgee : Simplify<JoinObjectValue<TestEnv, "table1", "table2">> = {
-	column21 : "table1.column2",
-	"#" : "left",
+type AccEnv = {
+	table1 : Table1;
 }
 
-const jTest : Join<TestEnv, Pick<TestEnv, "table1">, VerboseSyntaxKeys> = {
-	"table2 AS eee" : "column21 FULL JOIN table1.column2",
-	"table2 AS efzez" : {
-		"JOIN" : "full",
-		column21 : 4,
-		"column21 <=": [5, 6],
+const tgee : Simplify<JoinObjectValue<TestEnv, AccEnv, "table2">> = {
+	"#": "INNER",
+	column21 : col("table1.column2"),
+}
+
+const strTest : JoinStringValue<TestEnv, AccEnv, "table2"> = "column21 = table1.column2";
+
+const jTest : Join<TestEnv, AccEnv, VerboseSyntaxKeys> = {
+	"table2": {
+		JOIN : "FULL"
+
 	}
-} as const;
+}
+
+//let test : Exclude<keyof TestEnv, TablesWithType<TestEnv, string | boolean | number>> = 
+
+
+
+// {
+// 	"table2 AS eeefz" : "",
+// 	"table2 AS efzez" : {
+// 		"JOIN" : "full",
+// 		column21 : 4,
+// 		"column21 <=": [5, 6],
+// 	}
+// } as const;

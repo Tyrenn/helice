@@ -105,6 +105,7 @@ export type FlatEnv<
 
 export type TablesWithType<Env extends Environment, Type extends any> =
 	{ [Table in keyof Env] : Type extends Env[Table][keyof Env[Table]] ? Table : never}[keyof Env];
+export type TablesWithoutType<Env extends Environment, Type extends any> = Exclude<keyof Env, TablesWithType<Env, Type>>;
 
 
 

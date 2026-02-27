@@ -7,7 +7,6 @@ export type SyntaxKeys = {
 
 	// Used in join
 	join : string;
-	defaultJoin : string;
 	innerJoin : string;
 	fullJoin : string;
 	leftJoin : string;
@@ -105,7 +104,6 @@ export type SyntaxKeysConstant = {
 
 	// Used in join
 	join : string;
-	defaultJoin : string;
 	innerJoin : string;
 	fullJoin : string;
 	leftJoin : string;
@@ -191,7 +189,6 @@ export type ToSyntaxKey<SKC extends any> = {
 
 export const DefaultSyntaxKeys = {
 	join : "#",
-	defaultJoin : " # ",
 	innerJoin : " i# ",
 	fullJoin : " f# ",
 	leftJoin : " l# ",
@@ -267,7 +264,6 @@ export type DefaultSyntaxKeys = ToSyntaxKey<typeof DefaultSyntaxKeys> & {};
 
 export const VerboseSyntaxKeys = {
 	join : "JOIN",
-	defaultJoin : " JOIN ",
 	innerJoin : " INNER JOIN ",
 	fullJoin : " FULL JOIN ",
 	leftJoin : " LEFT JOIN ",

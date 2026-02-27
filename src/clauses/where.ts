@@ -1,6 +1,7 @@
 
 import {Arrayed, KeysOfType, KeysNotOfType, Table, Environment, FlatEnv, Obj, UnArraying, Column, col} from '../types';
 import { DefaultSyntaxKeys, SKArrayCompareOPL, SKArrayCompareOPR, SKArrayEqualityOPL, SKArrayEqualityOPR, SKArrayLikeOPL, SKArrayLikeOPR, SKCompareOPL, SKCompareOPR, SKEqualityOPL, SKEqualityOPR, SKLikeOPL, SKLikeOPR, SyntaxKeys, SyntaxKeysConstant, VerboseSyntaxKeys } from '../syntaxkeys';
+import { KeysOfArray, KeysOfNonArray, KeysOfNumber, KeysOfNumberArray, KeysOfString, KeysOfStringArray, WrapKeyArrayedValue, WrapKeyNoArrayValue } from './common';
 
 /****************
 		WHERE
@@ -62,44 +63,6 @@ Will translate in :
    ========================================================================= */
 
 
-	/** --------- Precomputed Key groups ------------- */
-	type KeysOfArray<T> = KeysOfType<T, any[]>;
-	type KeysOfStringArray<T> = KeysOfType<T, string[]>;
-	type KeysOfString<T> = KeysOfType<T, string>;
-	type KeysOfNonArray<T> = KeysNotOfType<T, any[]>;
-	type KeysOfNumber<T> = KeysOfType<T, number>;
-	type KeysOfNumberArray<T> = KeysOfType<T, number[]>;
-
-
-
-	/** --------- Plain Properties ------------- */
-	type PlainKey<
-		T extends Table,
-	> = {
-		[k in keyof T]? : Arrayed<T[k] | null> | (Column<KeysOfType<T, Arrayed<T[k]>> & (string & {})>);
-	}
-
-
-	/** --------- WRAP Properties ------------- */
-
-	// { [wrappedkey] : Anything}
-	type WrapKeyArrayedValue<
-		T extends Table,
-		K extends keyof T,
-		Prefix extends string,
-		Suffix extends string
-	> = {	[k in K & string as `${Prefix}${k}${Suffix}`]? : Arrayed<T[k] | null> | (Column<KeysOfType<T, Arrayed<T[k]>> & (string & {})>) ; };
-
-	// { [prefixcolumn] : Anything but array }
-	type WrapKeyNoArrayValue<
-		T extends Table,
-		K extends keyof T,
-		Prefix extends string,
-		Suffix extends string
-	> = { [k in K & string as `${Prefix}${k}${Suffix}`]? : UnArraying<T[k]> | null | KeysOfType<T, UnArraying<T[k]>>; };
-
-
-
 	/** --------- TS QUERY Properties ------------- */
 
 	export type TSQuery = {
@@ -127,15 +90,15 @@ Will translate in :
 
 		SK extends SyntaxKeys
 	> =
-		WrapKeyArrayedValue<T, KeysOfNonArray<T>, '', ''>	// TODO SHould not be all plain keys, otherwise how we know array ?
-		& WrapKeyArrayedValue<T, KeysOfNonArray<T>, SKEqualityOPL<SK>, SKEqualityOPR<SK>>									// =, !=
-		& WrapKeyArrayedValue<T, KeysOfNumber<T>, SKCompareOPL<SK>, SKCompareOPR<SK>>							// >, >=, <, ≤ on non-array number
-		& WrapKeyArrayedValue<T, KeysOfString<T>, SKLikeOPL<SK>, SKLikeOPR<SK>>									// LIKE operators on string
-		& WrapKeyArrayedValue<T, KeysOfArray<T>, SKArrayEqualityOPL<SK>, SKArrayEqualityOPR<SK>>			// arrays operators [=],[!],[]… on arrays
-		& WrapKeyNoArrayValue<T, KeysOfNumberArray<T>, SKArrayCompareOPL<SK>, SKArrayCompareOPR<SK>>		// >, >=, <, ≤ on number[]
-		& WrapKeyNoArrayValue<T, KeysOfStringArray<T>, SKArrayLikeOPL<SK>, SKArrayLikeOPR<SK>>				// LIKE operators on string[]
-		& TSQueryProp<T, SK>		 																								// @@:tsquery
+		WrapKeyArrayedValue<T, KeysOfNonArray<T>, T, '', ''>	// TODO SHould not be all plain keys, otherwise how we know array ?
+		& WrapKeyArrayedValue<T, KeysOfNonArray<T>, T, SKEqualityOPL<SK>, SKEqualityOPR<SK>>									// =, !=
+		& WrapKeyArrayedValue<T, KeysOfNumber<T>, T, SKCompareOPL<SK>, SKCompareOPR<SK>>							// >, >=, <, ≤ on non-array number
+		& WrapKeyArrayedValue<T, KeysOfString<T>, T, SKLikeOPL<SK>, SKLikeOPR<SK>>									// LIKE operators on string
+		& WrapKeyArrayedValue<T, KeysOfArray<T>, T, SKArrayEqualityOPL<SK>, SKArrayEqualityOPR<SK>>			// arrays operators [=],[!],[]… on arrays
+		& WrapKeyNoArrayValue<T, KeysOfNumberArray<T>, T, SKArrayCompareOPL<SK>, SKArrayCompareOPR<SK>>		// >, >=, <, ≤ on number[]
+		& WrapKeyNoArrayValue<T, KeysOfStringArray<T>, T, SKArrayLikeOPL<SK>, SKArrayLikeOPR<SK>>				// LIKE operators on string[]
 		& { [k in `${SK["andGroup"]}${string}`]? : FlatEnvWhere<T, SK>[]}											// nested AND
+		& TSQueryProp<T, SK>		 																								// @@:tsquery
 
 
 /* =========================================================================
@@ -596,7 +559,7 @@ type ENV = {
 };
 
 let t : Where<ENV, VerboseSyntaxKeys> = {
-	"table4.a4" : col('table1.b1'),
+	"table4.a4" : [5, col('table1.b1'), null, 3],
 	"{table1.c1} =": [3, 4],
 	
 }
