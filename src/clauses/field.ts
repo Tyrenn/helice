@@ -1,5 +1,6 @@
-import { FlatEnvKeys, Simplify, FlatEnv, StrKeys, Environment } from "../types";
+import { Simplify, Environment } from "../types";
 import { SyntaxKeys, DefaultSyntaxKeys } from "../syntaxkeys.js";
+import { FlatEnv, FlatEnvKeys, StrKeys } from "./common";
 
 /**=========================================================================
    =  Documentation
@@ -141,7 +142,7 @@ The raw sql statement must be a string but can be the result of a function ! As 
 			value : "table2.column2"
 		},		
 		"[]:alias3" : {						// Aggregate an object over 2 columns
-			groyp : ["table1.column1", "table1.column2"] 
+			groyu : ["table1.column1", "table1.column2"] 
 			value : {
 				"table1.column1" : true,
 				"table1.column2" : "c112"

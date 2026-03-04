@@ -177,7 +177,7 @@ Will translate in :
 
 
 
-class WhereParser{
+export class WhereParser{
 
 	idx: number = 1;
 
@@ -226,7 +226,7 @@ class WhereParser{
 			})(?<name>.+)$`);
 	}
 
-	pushValue(v : any) : string {
+	private pushValue(v : any) : string {
 		if(Array.isArray(v) && v.some(s => s instanceof Column)) //Check if array and if contains a Column instance
 			return `'{${v.map(s => {
 				if(s instanceof Column)
