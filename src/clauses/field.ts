@@ -2,6 +2,33 @@ import { Simplify, Environment } from "../types";
 import { SyntaxKeys, DefaultSyntaxKeys } from "../syntaxkeys.js";
 import { FlatEnv, FlatEnvKeys, StrKeys } from "./common";
 
+
+/**
+* TODO
+	"alias": "table.column" | 3 | "" | boolean,
+	"alias2": {
+		fn : "json_agg" | "array_agg",
+		group : "table1.column3" | ["table1.column1", "table1.column2"],
+		value: {
+		
+		}
+	},
+
+	"alias3" : {
+		fn : "raw",
+		value : ""
+	},
+
+	"alias4": {
+		fn : "json_build_object",
+		value : {
+			
+		}
+	}
+
+
+*/ 
+
 /**=========================================================================
    =  Documentation
    =========================================================================
@@ -46,6 +73,8 @@ The field as an object is most complete and powerful form :
 	"sql:alias4" : "COALESCE(table1.column1, "")"	// A raw sql statement
 }
 ```
+
+
 
 The raw sql statement must be a string but can be the result of a function ! As such you can use makeSafeSQL<Environment>() utility to get a function that will prevent you to use unknown column in your SQL statement
 

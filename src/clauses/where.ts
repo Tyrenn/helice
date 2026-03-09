@@ -1,7 +1,7 @@
 
-import {Arrayed, KeysOfType, KeysNotOfType, Table, Environment, FlatEnv, Obj, UnArraying, Column, col} from '../types';
+import { Table, Environment, Obj, Column, col} from '../types';
 import { DefaultSyntaxKeys, SKArrayCompareOPL, SKArrayCompareOPR, SKArrayEqualityOPL, SKArrayEqualityOPR, SKArrayLikeOPL, SKArrayLikeOPR, SKCompareOPL, SKCompareOPR, SKEqualityOPL, SKEqualityOPR, SKLikeOPL, SKLikeOPR, SyntaxKeys, SyntaxKeysConstant, VerboseSyntaxKeys } from '../syntaxkeys';
-import { KeysOfArray, KeysOfNonArray, KeysOfNumber, KeysOfNumberArray, KeysOfString, KeysOfStringArray, WrapKeyArrayedValue, WrapKeyNoArrayValue } from './common';
+import { Arrayed, FlatEnv, KeysNotOfType, KeysOfArray, KeysOfNonArray, KeysOfNumber, KeysOfNumberArray, KeysOfString, KeysOfStringArray, KeysOfType, WrapKeyArrayedValue, WrapKeyNoArrayValue } from './common';
 
 /****************
 		WHERE
@@ -202,7 +202,7 @@ export class WhereParser{
 			String.raw`^(?<opl>(?:${
 				[ this.SK['likeL'], this.SK['softLikeL'], this.SK['dislikeL'], this.SK['softDislikeL'], this.SK['regexLikeL'], this.SK['softRegexLikeL'], this.SK['equalityL'], this.SK['inequalityL'], this.SK['softSuperiorL'], this.SK['softInferiorL'], this.SK['strictSuperiorL'], this.SK['strictInferiorL']]
 					.flatMap(v => Array.isArray(v) ? v : [v]).map(v => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
-			}))(?<name>.+)(?<opr>${
+			}))(?<name>[A-Za-z0-9_]+)(?<opr>${
 				[ this.SK['likeR'], this.SK['softLikeR'], this.SK['dislikeR'], this.SK['softDislikeR'], this.SK['regexLikeR'], this.SK['softRegexLikeR'], this.SK['equalityR'], this.SK['inequalityR'], this.SK['softSuperiorR'], this.SK['softInferiorR'], this.SK['strictSuperiorR'], this.SK['strictInferiorR']]
 					.flatMap(v => Array.isArray(v) ? v : [v]).map(v => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
 			})$`);
@@ -210,20 +210,20 @@ export class WhereParser{
 			String.raw`^(?<opl>(?:${
 				[ this.SK['arrayLikeL'], this.SK['arraySoftLikeL'], this.SK['arrayDislikeL'], this.SK['arraySoftDislikeL'], this.SK['arrayRegexLikeL'], this.SK['arraySoftRegexLikeL'], this.SK['arrayEqualityL'], this.SK['arrayInequalityL'], this.SK['arraySoftSuperiorL'], this.SK['arraySoftInferiorL'], this.SK['arrayStrictSuperiorL'], this.SK['arrayStrictInferiorL']]
 					.flatMap(v => Array.isArray(v) ? v : [v]).map(v => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
-			}))(?<name>.+)(?<opr>${
+			}))(?<name>[A-Za-z0-9_]+)(?<opr>${
 				[ this.SK['arrayLikeR'], this.SK['arraySoftLikeR'], this.SK['arrayDislikeR'], this.SK['arraySoftDislikeR'], this.SK['arrayRegexLikeR'], this.SK['arraySoftRegexLikeR'], this.SK['arrayEqualityR'], this.SK['arrayInequalityR'], this.SK['arraySoftSuperiorR'], this.SK['arraySoftInferiorR'], this.SK['arrayStrictSuperiorR'], this.SK['arrayStrictInferiorR']]
 					.flatMap(v => Array.isArray(v) ? v : [v]).map(v => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
 			})$`);
 		this.TSQUERY_REGEX = new RegExp(
 			String.raw`^(?<opl>(?:${
 				[ this.SK['tsqueryL'] ].flatMap(v => Array.isArray(v) ? v : [v]).map(v => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
-			}))(?<name>.+)(?<opr>${
+			}))(?<name>[A-Za-z0-9_]+)(?<opr>${
 				[ this.SK['tsqueryR'] ].flatMap(v => Array.isArray(v) ? v : [v]).map(v => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
 			})$`);
 		this.AND_REGEX = new RegExp(
 			String.raw`^(?:${
 				[ this.SK['andGroup'] ].flatMap(v => Array.isArray(v) ? v : [v]).map(v => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
-			})(?<name>.+)$`);
+			})(?<name>[A-Za-z0-9_]+)$`);
 	}
 
 	private pushValue(v : any) : string {
@@ -346,13 +346,7 @@ export class WhereParser{
 		if(value === null)
 			return this.where += `${name} ${nullOP} NULL`;
 		else if (!Array.isArray(value))
-		// Comparison to another table
-			if(typeof value === "string" && /^[a-z_][a-z0-9_]*\.[a-z_][a-z0-9_]*$/.test(value))		
-				return this.where += `${name} ${op} value`;
-		// Single value
-			else
-				return this.where += `${name} ${op} ${this.pushValue(value)}`;
-		// Single value also
+			return this.where += `${name} ${op} ${this.pushValue(value)}`;
 		else if (value.length == 1)
 			return this.where += `${name} ${op} ${this.pushValue(value[0])}`;
 		// Array case

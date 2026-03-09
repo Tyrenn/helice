@@ -131,7 +131,6 @@ import { FlatEnv, KeysOfArray, KeysOfNonArray, KeysOfNumber, KeysOfNumberArray, 
 //		{ [table in  (TablesWithType<Env, string | boolean | number>) as table extends string ? `${'' | SK["innerJoin" | "fullJoin" | "leftJoin" | "rightJoin"]}${table}${'' | `${SK["alias"]}${string}`}` : never]? : JoinStringValue<Env, AccEnv, table> }
 
 
-	// TODO ADAPT
 	export type EnvironmentFromJoin<
 		Env extends Environment,
 		AccEnv extends Environment,
@@ -141,7 +140,7 @@ import { FlatEnv, KeysOfArray, KeysOfNonArray, KeysOfNumber, KeysOfNumberArray, 
 	> =
 		Simplify<
 				AccEnv
-			&	{ [k in StrKeys<J> as k extends `${infer table}` ? (table extends `${string}${SK["alias"]}${infer alias}` ? alias : table) : never] : k extends `${infer table}${'' | `${SK["alias"]}${string}`}` ? Env[table & keyof Env] : never}
+			&	{ [k in StrKeys<J> as k extends `${SK["innerJoin" | "fullJoin" | "leftJoin" | "rightJoin"] | ''}${infer table}` ? (table extends `${string}${SK["alias"]}${infer alias}` ? alias : table) : never] : k extends `${infer table}${'' | `${SK["alias"]}${string}`}` ? Env[table & keyof Env] : never}
 		>;
 
 
@@ -211,6 +210,8 @@ export class JoinParser{
 
 	readonly VALUE_REGEX : RegExp;
 	readonly ARRAY_REGEX : RegExp;
+	readonly AND_REGEX : RegExp;
+	readonly JOIN_TARGET_REGEX : RegExp;
 
 	constructor(sk : SyntaxKeysConstant){
 		this.SK = sk;
@@ -220,7 +221,7 @@ export class JoinParser{
 			String.raw`^(?<opl>(?:${
 				[ this.SK['likeL'], this.SK['softLikeL'], this.SK['dislikeL'], this.SK['softDislikeL'], this.SK['regexLikeL'], this.SK['softRegexLikeL'], this.SK['equalityL'], this.SK['inequalityL'], this.SK['softSuperiorL'], this.SK['softInferiorL'], this.SK['strictSuperiorL'], this.SK['strictInferiorL']]
 					.flatMap(v => Array.isArray(v) ? v : [v]).map(v => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
-			}))(?<name>.+)(?<opr>${
+			}))(?<name>[A-Za-z0-9_]+)(?<opr>${
 				[ this.SK['likeR'], this.SK['softLikeR'], this.SK['dislikeR'], this.SK['softDislikeR'], this.SK['regexLikeR'], this.SK['softRegexLikeR'], this.SK['equalityR'], this.SK['inequalityR'], this.SK['softSuperiorR'], this.SK['softInferiorR'], this.SK['strictSuperiorR'], this.SK['strictInferiorR']]
 					.flatMap(v => Array.isArray(v) ? v : [v]).map(v => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
 			})$`);
@@ -228,11 +229,23 @@ export class JoinParser{
 			String.raw`^(?<opl>(?:${
 				[ this.SK['arrayLikeL'], this.SK['arraySoftLikeL'], this.SK['arrayDislikeL'], this.SK['arraySoftDislikeL'], this.SK['arrayRegexLikeL'], this.SK['arraySoftRegexLikeL'], this.SK['arrayEqualityL'], this.SK['arrayInequalityL'], this.SK['arraySoftSuperiorL'], this.SK['arraySoftInferiorL'], this.SK['arrayStrictSuperiorL'], this.SK['arrayStrictInferiorL']]
 					.flatMap(v => Array.isArray(v) ? v : [v]).map(v => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
-			}))(?<name>.+)(?<opr>${
+			}))(?<name>[A-Za-z0-9_]+)(?<opr>${
 				[ this.SK['arrayLikeR'], this.SK['arraySoftLikeR'], this.SK['arrayDislikeR'], this.SK['arraySoftDislikeR'], this.SK['arrayRegexLikeR'], this.SK['arraySoftRegexLikeR'], this.SK['arrayEqualityR'], this.SK['arrayInequalityR'], this.SK['arraySoftSuperiorR'], this.SK['arraySoftInferiorR'], this.SK['arrayStrictSuperiorR'], this.SK['arrayStrictInferiorR']]
 					.flatMap(v => Array.isArray(v) ? v : [v]).map(v => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
 			})$`);
-
+		this.AND_REGEX = new RegExp(
+			String.raw`^(?:${
+				[ this.SK['andGroup'] ].flatMap(v => Array.isArray(v) ? v : [v]).map(v => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
+			})(?<name>[A-Za-z0-9_]+)$`);
+		this.JOIN_TARGET_REGEX = new RegExp(
+			String.raw`^(?<type>(?:${
+				[ this.SK['leftJoin'], this.SK['fullJoin'], this.SK['innerJoin'], this.SK['rightJoin'], '']
+					.flatMap(v => Array.isArray(v) ? v : [v]).map(v => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
+			}))(?<name>[A-Za-z0-9_]+)(?:${
+				[ this.SK['alias'] ]
+					.flatMap(v => Array.isArray(v) ? v : [v]).map(v => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
+			})?(?<alias>[A-Za-z0-9_]+)?`
+		)
 	}
 
 
@@ -261,31 +274,31 @@ export class JoinParser{
 		
 		if(opType === "equality")
 			if (!Array.isArray(value))
-				return this.where += `${this.pushValue(value)} = ANY(${name})`;
+				return this.from += `${this.pushValue(value)} = ANY(${name})`;
 			else if(value.length == 1)
-				return this.where += `${this.pushValue(value[0])} = ANY(${name})`;
+				return this.from += `${this.pushValue(value[0])} = ANY(${name})`;
 			else
-				return this.where += `( ${value.filter(v => v !== null).map(v => `${this.pushValue(v)} = ANY(${name}`).join(' OR ')} ${value.includes(null) ? `OR ${name} IS NULL ` : ''})` ;
+				return this.from += `( ${value.filter(v => v !== null).map(v => `${this.pushValue(v)} = ANY(${name}`).join(' OR ')} ${value.includes(null) ? `OR ${name} IS NULL ` : ''})` ;
 	
 		else if(opType === 'inequality')
 			if(!Array.isArray(value))
-				return this.where += `${this.pushValue(value)} ${op} ALL(${name})`
+				return this.from += `${this.pushValue(value)} ${op} ALL(${name})`
 			else if(value.length == 1)
-				return this.where += `${this.pushValue(value[0])} ${op} ALL(${name})`
+				return this.from += `${this.pushValue(value[0])} ${op} ALL(${name})`
 			else
-				return this.where += `( ${value.filter(v => v !== null).map(v => `${this.pushValue(v)} ${op} ALL(${name})`).join(' AND ')} ${value.includes(null) ? `AND ${name} IS NOT NULL ` : ''})`
+				return this.from += `( ${value.filter(v => v !== null).map(v => `${this.pushValue(v)} ${op} ALL(${name})`).join(' AND ')} ${value.includes(null) ? `AND ${name} IS NOT NULL ` : ''})`
 
 		else if(opType === 'like')
 			if(!Array.isArray(value))
-				return this.where += `array_to_string(${name}, ' ') ${op} ${this.pushValue(value)}`;
+				return this.from += `array_to_string(${name}, ' ') ${op} ${this.pushValue(value)}`;
 			else if(value.length == 1)
-				return this.where += `array_to_string(${name}, ' ') ${op} ${this.pushValue(value[0])}`;
+				return this.from += `array_to_string(${name}, ' ') ${op} ${this.pushValue(value[0])}`;
 			else
-				return this.where += `( ${value.filter(v => v !== null).map(v => `array_to_string(${name}, ' ') ${op} ${this.pushValue(v)}`).join(' OR ')} ${value.includes(null) ? `OR ${name} IS NULL ` : ''} )`;
+				return this.from += `( ${value.filter(v => v !== null).map(v => `array_to_string(${name}, ' ') ${op} ${this.pushValue(v)}`).join(' OR ')} ${value.includes(null) ? `OR ${name} IS NULL ` : ''} )`;
 
 		else if(opType === 'compare')
 			if(!Array.isArray(value))
-				return this.where += `${this.pushValue(value)} ${op} ALL(${name})`
+				return this.from += `${this.pushValue(value)} ${op} ALL(${name})`
 			else
 				return
 	}
@@ -302,7 +315,7 @@ export class JoinParser{
 		[~~*]:arr : "test"		=>		"test" ~~* array_to_string(arr, ' ')
 		[~~]:arr : [1, 2, null]		=>		(i is NULL OR 1 ~~ array_to_string(arr, ' ') OR 2 ~~ array_to_string(arr, ' '))
 	*/
-	private parseArray(key : string, value : any){
+	private parseObjectJoinArrayProp(key : string, value : any){
 		const match = key.match(this.ARRAY_REGEX);
 
 		if (!match || !match.groups?.name)
@@ -355,20 +368,15 @@ export class JoinParser{
 
 		// Null case
 		if(value === null)
-			return this.where += `${name} ${nullOP} NULL`;
+			return this.from += `${name} ${nullOP} NULL`;
 		else if (!Array.isArray(value))
-		// Comparison to another table
-			if(typeof value === "string" && /^[a-z_][a-z0-9_]*\.[a-z_][a-z0-9_]*$/.test(value))		
-				return this.where += `${name} ${op} value`;
-		// Single value
-			else
-				return this.where += `${name} ${op} ${this.pushValue(value)}`;
+			return this.from += `${name} ${op} ${this.pushValue(value)}`;
 		// Single value also
 		else if (value.length == 1)
-			return this.where += `${name} ${op} ${this.pushValue(value[0])}`;
+			return this.from += `${name} ${op} ${this.pushValue(value[0])}`;
 		// Array case
 		else
-			return this.where += value.includes(null) ? `( ${name} ${nullOP} NULL AND ${name} ${op} ${arrMethod}(${this.pushValue(value)}) )` : `${name} ${op} ${arrMethod}(${this.pushValue(value)})`;
+			return this.from += value.includes(null) ? `( ${name} ${nullOP} NULL AND ${name} ${op} ${arrMethod}(${this.pushValue(value)}) )` : `${name} ${op} ${arrMethod}(${this.pushValue(value)})`;
 	}
 
 
@@ -384,7 +392,7 @@ export class JoinParser{
 		~~*:i : "test"		=>			i ~~* "test"
 		~~:i : [1, null]	=>			(i is NULL OR i ~~ array_to_string([1], ' '))
 	 */
-	private parseValue(key : string, value : any) {
+	private parseObjectJoinValueProp(key : string, value : any) {
 		const match = key.match(this.VALUE_REGEX);
 
 		if (!match || !match.groups?.name)
@@ -422,93 +430,76 @@ export class JoinParser{
 	}
 
 
+	private parseObjectJoinANDProp(key : string, value : any){
+		const match = key.match(this.AND_REGEX);
+
+		if (!match || !match.groups?.name)
+			return;
+		
+		this.parse(value, this.idx);
+	}
+
+	private parseStringJoin(key : string, value : any){
+		if(typeof value !== "string")
+			return;
+		
+		const match = key.match(this.JOIN_TARGET_REGEX);
+
+		if (!match || !match.groups?.name)
+			return;
+
+		const fromtemp = `JOIN ${match.groups?.name}${!!match.groups?.alias && ' AS ' + match.groups?.alias}\n\tON ${match.groups?.alias ?? match.groups?.name}.${value}`;
+
+		if(!match.groups.type || match.groups.type === "" || match.groups.type === this.SK['leftJoin'])
+			return this.from += `LEFT ${fromtemp}`;
+		if(match.groups.type === this.SK['fullJoin'])
+			return this.from += `FULL ${fromtemp}`;
+		if(match.groups.type === this.SK['rightJoin'])
+			return this.from += `RIGHT ${fromtemp}`;
+		if(match.groups.type === this.SK['innerJoin'])
+			return this.from += `INNER ${fromtemp}`;
+	}
+
+
+	private parseObjectJoin(key : string, value : any){
+		if(typeof value !== "object" || value === null || Array.isArray(value) || !value[this.SK["join"]])
+			return;
+		
+		const match = key.match(this.JOIN_TARGET_REGEX);
+
+		if (!match || !match.groups?.name)
+			return;
+		
+		this.from += `${value[this.SK["join"]]} JOIN ${match.groups?.name}${!!match.groups?.alias && ' AS ' + match.groups?.alias}\n\tON `;
+		delete value[this.SK["join"]];
+
+		for(let key in value){
+			if(value[key] === undefined)
+					continue;
+
+			this.parseObjectJoinANDProp(key, value[key]);
+			this.parseObjectJoinArrayProp(key, value[key]);
+			this.parseObjectJoinValueProp(key, value[key]);
+
+			this.from += ' AND ';
+		}
+		
+		this.from = this.from.slice(0,-5);
+	}
+
+
+	parse(join : Obj, idx : number = 1){
+		this.idx = idx;
+		this.values = [];
+
+		for(const prop in join){
+			this.parseStringJoin(prop, join[prop]);
+			this.parseObjectJoin(prop, join[prop]);
+			this.from += ` ,\n`;
+		}
+		this.from = this.from.slice(0,-3);
+	}
 }
-
-
-// TODO IN CASE VALUE ?!
-// Give 
-
-function stringJoinToSQL(sk : SyntaxKeysConstant, target : string, value : string, alias? : string){
-	if(alias && alias === '')
-		alias = undefined;
-
-	let res = `JOIN ${target}${!!alias && ' AS ' + alias}\n`;
-
-	if(value.includes(sk.defaultJoin)){
-		const [column, from] = value.split(sk.defaultJoin);
-		return `LEFT ${res}`  + `\tON ${alias ? alias : target}.${column} = ${from} ,\n`;
-	}
-	else if(value.includes(sk.leftJoin)){
-		const [column, from] = value.split(sk.leftJoin);
-		return `LEFT ${res}` + `\tON ${alias ? alias : target}.${column} = ${from} ,\n`;
-	}
-	else if(value.includes(sk.fullJoin)){
-		const [column, from] = value.split(sk.fullJoin);
-		return `FULL ${res}` + `\tON ${alias ? alias : target}.${column} = ${from} ,\n`;
-	}
-	else if(value.includes(sk.rightJoin)){
-		const [column, from] = value.split(sk.rightJoin);
-		return `RIGHT ${res}` + `\tON ${alias ? alias : target}.${column} = ${from} ,\n`;
-	}
-	else if(value.includes(sk.innerJoin)){
-		const [column, from] = value.split(sk.innerJoin);
-		return `INNER ${res}` + `\tON ${alias ? alias : target}.${column} = ${from} ,\n`;
-	}
-	else '';
-}
-
-function objectJoinToSQL(sk : SyntaxKeysConstant, target : string, value : Obj, alias? : string){
-	if(alias && alias === '')
-		alias = undefined;
-
-	let res = `JOIN ${target}${!!alias && ' AS ' + alias}\n`;
-
-	if(value[sk.join] && value[sk.join] === 'left')
-		res = 'LEFT ' + res;
-	else if(value[sk.join] && value[sk.join] === 'inner')
-		res = 'INNER ' + res;
-	else if(value[sk.join] && value[sk.join] === 'full')
-		res = 'FULL ' + res;
-	else if(value[sk.join] && value[sk.join] === 'right')
-		res = 'RIGHT ' + res;
-	else
-		res = 'LEFT ' + res;
-
-	delete value[sk.join];
-
-	if (Object.keys(value).length > 0)
-		res += `\n\t ON `;
-
-	const keyRgx = new RegExp(
-			String.raw`^(?:(?<op>[^:]+):)?(?<name>.+)$`	// Match 'op:str' or 'str'
-		, 'i');
-
-	for(let key in value){
-		const match = key.match(keyRgx);
-		res += ` ${match?.groups?.name} ${match?.groups?.op ?? '='} ${value[key]}`;
-	}
-
-	return res += `,\n`;
-}
-
-export function joinToSQL(join : Obj | undefined, sk : SyntaxKeys){
-	if(!join)
-		return '';
-
-	let res : string = '';
-
-	for(let key in join){
-		const [target, alias] = key.includes(sk.alias) ? key.split(sk.alias) : [key, undefined];
-
-		if(typeof join[key] === "string")
-			res += stringJoinToSQL(sk, target, join[key], alias);
-		else
-			res += objectJoinToSQL(sk, target, join[key], alias);
-	}
-
-	return res = res.slice(0, -2);
-}
-
 
 
 
@@ -548,10 +539,9 @@ type AccEnv = {
 
 const tgee : Simplify<JoinObjectValue<TestEnv, AccEnv, "table2">> = {
 	"#": "INNER",
-	column21 : col("table1.column2"),
 }
 
-const strTest : JoinStringValue<TestEnv, AccEnv, "table2"> = "column21 = table1.column2";
+//const strTest : JoinStringValue<TestEnv, AccEnv, "table2"> = "column21 = table1.column2";
 
 const jTest : Join<TestEnv, AccEnv, VerboseSyntaxKeys> = {
 	"table2 AS eee": {
