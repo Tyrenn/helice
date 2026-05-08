@@ -1,8 +1,8 @@
-import { Field, FieldHasDuplicateAliases, TableFromField } from "./clauses/field";
-import { EnvironmentFromJoin, Join, JoinHasDuplicateAliases } from "./clauses/join";
-import { mergeWHEREAsAND, Where } from "./clauses/where";
-import { DefaultSyntaxKeys, SyntaxKeys } from "./syntaxkeys";
-import { CommonTableExpression, Environment, MethodResultType, PreparedQueryArguments, PreparedQueryOptions, Table } from "./types";
+import { Field, FieldHasDuplicateAliases, FieldParser, TableFromField } from "./clauses/field";
+import { EnvironmentFromJoin, Join, JoinHasDuplicateAliases, JoinParser } from "./clauses/join";
+import { mergeWHEREAsAND, Where, WhereParser } from "./clauses/where";
+import { DefaultSyntaxKeys, SyntaxKeys, SyntaxKeysConstant } from "./syntaxkeys";
+import { CommonTableExpression, Environment, MethodResultType, Obj, PreparedQueryArguments, PreparedQueryOptions, Table } from "./types";
 
 type PreparedSelectQueryArguments<AccessibleEnv extends Environment, SK extends SyntaxKeys = DefaultSyntaxKeys> = {
 	field? : Field<AccessibleEnv, undefined, SK>,
@@ -19,14 +19,16 @@ export class SelectQuery<
 	SK extends SyntaxKeys
 > implements CommonTableExpression<TableResult, PreparedSelectQueryArguments<AccEnv>> {
 	
-	#from : string;
+	#from  : string;
+	#sk    : SyntaxKeysConstant;
 	#field : Field<AccEnv, From, SK> = '*';
 	#where : Where<AccEnv, SK, From> | undefined;
-	#join : Join<Env, AccEnv, SK> | undefined;
+	#join  : Join<Env, AccEnv, SK> | undefined;
 	#limit : number | undefined;
-	
-	constructor(from : From & string){
+
+	constructor(from : From & string, sk : SyntaxKeysConstant = DefaultSyntaxKeys){
 		this.#from = from;
+		this.#sk   = sk;
 	}
 
 	// Should retrun a function ready to accept field, where, limit, offset parameters
@@ -71,8 +73,8 @@ export class SelectQuery<
 	}
 	
 
-	field<const F extends Field<AccEnv, From, SK>, Invalid extends FieldHasDuplicateAliases<F, SK>>(
-		field : Invalid extends false ? F : "[WARNING] : Duplicated Column Alias" & never
+	field<const F extends Field<AccEnv, From, SK>>(
+		field : [FieldHasDuplicateAliases<F, SK>] extends [false] ? F : "[WARNING] : Duplicated Column Alias"
 	){
 		this.#field = field as F;
 		return (this as unknown) as MethodResultType<SelectQuery<Env, AccEnv, TableFromField<AccEnv, F, From, SK>, From, SK>, typeof this, "field" | "join">;
@@ -84,8 +86,8 @@ export class SelectQuery<
 	 * @param join 
 	 * @returns 
 	 */
-	join<J extends Join<Env, AccEnv, SK>, Invalid extends JoinHasDuplicateAliases<J, keyof AccEnv & string, SK>>(
-		join : Invalid extends false ? J : "[WARNING] : Duplicated Column Alias" & never
+	join<J extends Join<Env, AccEnv, SK>>(
+		join : [JoinHasDuplicateAliases<J, keyof AccEnv & string, SK>] extends [false] ? J : "[WARNING] : Duplicated Join Alias"
 	){
 		this.#join = join as J;
 		return (this as unknown ) as MethodResultType<SelectQuery<Env, EnvironmentFromJoin<Env, AccEnv, J, SK>, TableResult, undefined, SK>, typeof this, "join">;
@@ -103,6 +105,69 @@ export class SelectQuery<
 	){
 		this.#limit = limit;
 		return (this as unknown) as MethodResultType<SelectQuery<Env, AccEnv, TableResult, From, SK>, typeof this, "limit">;
+	}
+
+
+	prepareClaude<A extends PreparedSelectQueryArguments<AccEnv>>(options? : PreparedQueryOptions<A>) : (args? : PreparedQueryArguments<A>) => {query : string, args : any[]} {
+
+		return (args? : PreparedQueryArguments<A>) => {
+			const castedArgs = args as A | undefined;
+
+			// ── FIELD ────────────────────────────────────────────────────────
+			// Runtime field overrides the builder field when the option is enabled.
+			const effectiveField : Obj | string | string[] =
+				(options?.field && castedArgs?.field) ? castedArgs.field as any : this.#field as any;
+
+			const fieldParser = new FieldParser(this.#sk);
+			fieldParser.parse(effectiveField);
+
+			// ── JOIN ─────────────────────────────────────────────────────────
+			// Join is always static (defined at build time), no runtime override.
+			const joinParser = new JoinParser(this.#sk);
+			if(this.#join)
+				joinParser.parse(this.#join as Obj, 1);
+
+			// ── WHERE ────────────────────────────────────────────────────────
+			// Static where starts after join parameters ($joinParser.idx).
+			const whereParser = new WhereParser(this.#sk);
+			if(this.#where)
+				whereParser.parse(this.#where as Obj, joinParser.idx);
+
+			// Runtime where (if option enabled) is merged with static where via AND.
+			let runtimeWhereSQL = '';
+			let runtimeWhereValues : any[] = [];
+			if(options?.where && castedArgs?.where){
+				const runtimeParser = new WhereParser(this.#sk);
+				runtimeParser.parse(castedArgs.where as Obj, whereParser.idx);
+				runtimeWhereSQL   = runtimeParser.where;
+				runtimeWhereValues = runtimeParser.values;
+			}
+
+			const whereSQL = mergeWHEREAsAND(whereParser.where, runtimeWhereSQL);
+
+			// ── LIMIT ─────────────────────────────────────────────────────────
+			const limit = (options?.limit && castedArgs?.limit != null) ? castedArgs.limit : this.#limit;
+
+			// ── TSQuery FROM additions ────────────────────────────────────────
+			// WhereParser.from holds extra FROM expressions generated by @@: (tsquery).
+			// They end with a trailing comma → trim before appending.
+			const tsqueryFrom = whereParser.from.trimEnd().replace(/,\s*$/, '');
+
+			// ── BUILD SQL ─────────────────────────────────────────────────────
+			const lines : string[] = [
+				`SELECT ${fieldParser.select || '*'}`,
+				`FROM ${this.#from}${tsqueryFrom ? `, ${tsqueryFrom}` : ''}`,
+				joinParser.from,
+				whereSQL       ? `WHERE ${whereSQL}`       : '',
+				fieldParser.groupby ? `GROUP BY ${fieldParser.groupby}` : '',
+				limit != null  ? `LIMIT ${limit}`          : '',
+			];
+
+			return {
+				query : lines.filter(l => l.trim()).join('\n'),
+				args  : [...joinParser.values, ...whereParser.values, ...runtimeWhereValues],
+			};
+		};
 	}
 }
 

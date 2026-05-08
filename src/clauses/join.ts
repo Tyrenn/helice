@@ -221,7 +221,7 @@ export class JoinParser{
 			String.raw`^(?<opl>(?:${
 				[ this.SK['likeL'], this.SK['softLikeL'], this.SK['dislikeL'], this.SK['softDislikeL'], this.SK['regexLikeL'], this.SK['softRegexLikeL'], this.SK['equalityL'], this.SK['inequalityL'], this.SK['softSuperiorL'], this.SK['softInferiorL'], this.SK['strictSuperiorL'], this.SK['strictInferiorL']]
 					.flatMap(v => Array.isArray(v) ? v : [v]).map(v => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
-			}))(?<name>[A-Za-z0-9_]+)(?<opr>${
+			}))(?<name>[A-Za-z0-9_.]+)(?<opr>${
 				[ this.SK['likeR'], this.SK['softLikeR'], this.SK['dislikeR'], this.SK['softDislikeR'], this.SK['regexLikeR'], this.SK['softRegexLikeR'], this.SK['equalityR'], this.SK['inequalityR'], this.SK['softSuperiorR'], this.SK['softInferiorR'], this.SK['strictSuperiorR'], this.SK['strictInferiorR']]
 					.flatMap(v => Array.isArray(v) ? v : [v]).map(v => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
 			})$`);
@@ -229,22 +229,22 @@ export class JoinParser{
 			String.raw`^(?<opl>(?:${
 				[ this.SK['arrayLikeL'], this.SK['arraySoftLikeL'], this.SK['arrayDislikeL'], this.SK['arraySoftDislikeL'], this.SK['arrayRegexLikeL'], this.SK['arraySoftRegexLikeL'], this.SK['arrayEqualityL'], this.SK['arrayInequalityL'], this.SK['arraySoftSuperiorL'], this.SK['arraySoftInferiorL'], this.SK['arrayStrictSuperiorL'], this.SK['arrayStrictInferiorL']]
 					.flatMap(v => Array.isArray(v) ? v : [v]).map(v => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
-			}))(?<name>[A-Za-z0-9_]+)(?<opr>${
+			}))(?<name>[A-Za-z0-9_.]+)(?<opr>${
 				[ this.SK['arrayLikeR'], this.SK['arraySoftLikeR'], this.SK['arrayDislikeR'], this.SK['arraySoftDislikeR'], this.SK['arrayRegexLikeR'], this.SK['arraySoftRegexLikeR'], this.SK['arrayEqualityR'], this.SK['arrayInequalityR'], this.SK['arraySoftSuperiorR'], this.SK['arraySoftInferiorR'], this.SK['arrayStrictSuperiorR'], this.SK['arrayStrictInferiorR']]
 					.flatMap(v => Array.isArray(v) ? v : [v]).map(v => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
 			})$`);
 		this.AND_REGEX = new RegExp(
 			String.raw`^(?:${
 				[ this.SK['andGroup'] ].flatMap(v => Array.isArray(v) ? v : [v]).map(v => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
-			})(?<name>[A-Za-z0-9_]+)$`);
+			})(?<name>[A-Za-z0-9_.]+)$`);
 		this.JOIN_TARGET_REGEX = new RegExp(
 			String.raw`^(?<type>(?:${
 				[ this.SK['leftJoin'], this.SK['fullJoin'], this.SK['innerJoin'], this.SK['rightJoin'], '']
 					.flatMap(v => Array.isArray(v) ? v : [v]).map(v => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
-			}))(?<name>[A-Za-z0-9_]+)(?:${
+			}))(?<name>[A-Za-z0-9_.]+)(?:${
 				[ this.SK['alias'] ]
 					.flatMap(v => Array.isArray(v) ? v : [v]).map(v => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
-			})?(?<alias>[A-Za-z0-9_]+)?`
+			})?(?<alias>[A-Za-z0-9_.]+)?`
 		)
 	}
 
@@ -436,6 +436,7 @@ export class JoinParser{
 		if (!match || !match.groups?.name)
 			return;
 		
+		// TODO 
 		this.parse(value, this.idx);
 	}
 
@@ -471,9 +472,9 @@ export class JoinParser{
 			return;
 		
 		this.from += `${value[this.SK["join"]]} JOIN ${match.groups?.name}${!!match.groups?.alias && ' AS ' + match.groups?.alias}\n\tON `;
-		delete value[this.SK["join"]];
+		const { [this.SK["join"]]: _, ...rest } = value;
 
-		for(let key in value){
+		for(let key in rest){
 			if(value[key] === undefined)
 					continue;
 
@@ -495,7 +496,7 @@ export class JoinParser{
 		for(const prop in join){
 			this.parseStringJoin(prop, join[prop]);
 			this.parseObjectJoin(prop, join[prop]);
-			this.from += ` ,\n`;
+			this.from += ` \n`;
 		}
 		this.from = this.from.slice(0,-3);
 	}

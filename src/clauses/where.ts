@@ -1,7 +1,7 @@
 
 import { Table, Environment, Obj, Column, col} from '../types';
 import { DefaultSyntaxKeys, SKArrayCompareOPL, SKArrayCompareOPR, SKArrayEqualityOPL, SKArrayEqualityOPR, SKArrayLikeOPL, SKArrayLikeOPR, SKCompareOPL, SKCompareOPR, SKEqualityOPL, SKEqualityOPR, SKLikeOPL, SKLikeOPR, SyntaxKeys, SyntaxKeysConstant, VerboseSyntaxKeys } from '../syntaxkeys';
-import { Arrayed, FlatEnv, KeysNotOfType, KeysOfArray, KeysOfNonArray, KeysOfNumber, KeysOfNumberArray, KeysOfString, KeysOfStringArray, KeysOfType, WrapKeyArrayedValue, WrapKeyNoArrayValue } from './common';
+import { MaybeArray, FlatEnv, KeysNotOfType, KeysOfArray, KeysOfNonArray, KeysOfNumber, KeysOfNumberArray, KeysOfString, KeysOfStringArray, KeysOfType, WrapKeyArrayedValue, WrapKeyNoArrayValue } from './common';
 
 /****************
 		WHERE
@@ -111,7 +111,7 @@ Will translate in :
 		Env extends Environment,
 		SK extends SyntaxKeys,
 		OnlyOneTable extends keyof Env | undefined = undefined,
-	> = Arrayed<FlatEnvWhere<FlatEnv<Env, OnlyOneTable>, SK>>;
+	> = MaybeArray<FlatEnvWhere<FlatEnv<Env, OnlyOneTable>, SK>>;
 
 
 
@@ -123,12 +123,38 @@ Will translate in :
 		PREPARED WHERE
 **************************/
 
-	// Generate tuple from referenced where value
-	// Might be good to generate an object with keys rather than tuple ?
-	// The idea was to be able to mention Where like keys which then create a tuple type to pass as a prepared function argument I guess.
+	/**
+	 * This system lets you declare a WHERE "schema" — a tuple of WHERE key strings —
+	 * and have TypeScript automatically infer the matching value tuple type.
+	 *
+	 * The goal: instead of passing a full Where object at runtime, you declare upfront
+	 * which columns (and with which operators) will be parameterized, and get a
+	 * strongly-typed tuple of values to pass in order.
+	 *
+	 * Example:
+	 *   Schema:  ["name", "=:age", "[=]:tags"]
+	 *   Values:  [string,  number,  string[] ]   ← inferred by ValuesFromTablePreparedWhere
+	 *
+	 * Nested arrays represent AND groups (OR of multiple AND conditions),
+	 * mirroring the Where clause structure.
+	 */
 
+	/** Prepends a string prefix P to S if S is a string, otherwise never. */
 	type prefixString<S extends any, P extends string> = S extends string ? `${P}${S}` : never;
 
+	/**
+	 * The set of valid WHERE key strings for a given flat table type T.
+	 * Each element of this array type is one valid WHERE key the user can include
+	 * in their schema, covering all operator variants:
+	 *
+	 *   "col"          plain column (equality / default operator)
+	 *   "[=]:col"      array column operators  ([=], [!], [<>], [>], [>=], [<], [<=])
+	 *   "[~~]:col"     array column LIKE operators
+	 *   "@@:col"       TSQuery operator (only on string arrays)
+	 *   "=:col"        scalar equality / comparison operators
+	 *   "~~:col"       scalar LIKE operators
+	 *   Array<...>     nested AND group (OR of multiple AND conditions)
+	 */
 	export type TablePreparedWhere<T extends Table> = Array<
 		keyof T
 		| prefixString<KeysOfType<Required<T>, Array<any>>, `[${'' | '!' | '=' | '<>' | '!=' | '>' | '>=' | '<' | '<='}]:`>
@@ -139,10 +165,25 @@ Will translate in :
 		| Array<TablePreparedWhere<T>>
 	>
 
+	/** Shorthand: same as TablePreparedWhere but operates on the full flat environment. */
 	export type EnvironmentPreparedWhere<Env extends Environment> = TablePreparedWhere<FlatEnv<Env>>;
 
 
-
+	/**
+	 * Given a flat table type T and a schema tuple A (a TablePreparedWhere),
+	 * recursively resolves each schema entry to its corresponding value type,
+	 * producing a value tuple in the same order.
+	 *
+	 * Resolution rules (applied to each element E of A):
+	 *   E extends keyof T              → T[E]           (plain column → its type)
+	 *   E extends `${string}:${S}`     → T[S]           (prefixed key → strip prefix, look up)
+	 *   E extends Array<unknown>        → recurse(E)     (nested AND group → flatten values)
+	 *
+	 * Example:
+	 *   T = { name: string, age: number, tags: string[] }
+	 *   A = ["name", "=:age", [">=:age", "<=:age"]]
+	 *   Result = [string, number, number, number]
+	 */
 	export type ValuesFromTablePreparedWhere<T extends Table, A extends unknown[]> = A extends [] ? [] : A extends [infer E, ...infer R] ?
 		(	E extends keyof T ?
 			[T[E], ... ValuesFromTablePreparedWhere<T,R>]
@@ -164,7 +205,7 @@ Will translate in :
 		:
 		A;
 
-
+	/** Shorthand: same as ValuesFromTablePreparedWhere but on the full flat environment. */
 	export type ValuesFromEnvironmentPreparedWhere<Env extends Environment, A extends unknown[]> = ValuesFromTablePreparedWhere<FlatEnv<Env>, A>;
 
 
@@ -202,7 +243,7 @@ export class WhereParser{
 			String.raw`^(?<opl>(?:${
 				[ this.SK['likeL'], this.SK['softLikeL'], this.SK['dislikeL'], this.SK['softDislikeL'], this.SK['regexLikeL'], this.SK['softRegexLikeL'], this.SK['equalityL'], this.SK['inequalityL'], this.SK['softSuperiorL'], this.SK['softInferiorL'], this.SK['strictSuperiorL'], this.SK['strictInferiorL']]
 					.flatMap(v => Array.isArray(v) ? v : [v]).map(v => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
-			}))(?<name>[A-Za-z0-9_]+)(?<opr>${
+			}))(?<name>[A-Za-z0-9_.]+)(?<opr>${
 				[ this.SK['likeR'], this.SK['softLikeR'], this.SK['dislikeR'], this.SK['softDislikeR'], this.SK['regexLikeR'], this.SK['softRegexLikeR'], this.SK['equalityR'], this.SK['inequalityR'], this.SK['softSuperiorR'], this.SK['softInferiorR'], this.SK['strictSuperiorR'], this.SK['strictInferiorR']]
 					.flatMap(v => Array.isArray(v) ? v : [v]).map(v => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
 			})$`);
@@ -210,20 +251,20 @@ export class WhereParser{
 			String.raw`^(?<opl>(?:${
 				[ this.SK['arrayLikeL'], this.SK['arraySoftLikeL'], this.SK['arrayDislikeL'], this.SK['arraySoftDislikeL'], this.SK['arrayRegexLikeL'], this.SK['arraySoftRegexLikeL'], this.SK['arrayEqualityL'], this.SK['arrayInequalityL'], this.SK['arraySoftSuperiorL'], this.SK['arraySoftInferiorL'], this.SK['arrayStrictSuperiorL'], this.SK['arrayStrictInferiorL']]
 					.flatMap(v => Array.isArray(v) ? v : [v]).map(v => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
-			}))(?<name>[A-Za-z0-9_]+)(?<opr>${
+			}))(?<name>[A-Za-z0-9_.]+)(?<opr>${
 				[ this.SK['arrayLikeR'], this.SK['arraySoftLikeR'], this.SK['arrayDislikeR'], this.SK['arraySoftDislikeR'], this.SK['arrayRegexLikeR'], this.SK['arraySoftRegexLikeR'], this.SK['arrayEqualityR'], this.SK['arrayInequalityR'], this.SK['arraySoftSuperiorR'], this.SK['arraySoftInferiorR'], this.SK['arrayStrictSuperiorR'], this.SK['arrayStrictInferiorR']]
 					.flatMap(v => Array.isArray(v) ? v : [v]).map(v => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
 			})$`);
 		this.TSQUERY_REGEX = new RegExp(
 			String.raw`^(?<opl>(?:${
 				[ this.SK['tsqueryL'] ].flatMap(v => Array.isArray(v) ? v : [v]).map(v => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
-			}))(?<name>[A-Za-z0-9_]+)(?<opr>${
+			}))(?<name>[A-Za-z0-9_.]+)(?<opr>${
 				[ this.SK['tsqueryR'] ].flatMap(v => Array.isArray(v) ? v : [v]).map(v => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
 			})$`);
 		this.AND_REGEX = new RegExp(
 			String.raw`^(?:${
 				[ this.SK['andGroup'] ].flatMap(v => Array.isArray(v) ? v : [v]).map(v => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
-			})(?<name>[A-Za-z0-9_]+)$`);
+			})(?<name>[A-Za-z0-9_.]+)$`);
 	}
 
 	private pushValue(v : any) : string {
@@ -554,7 +595,6 @@ type ENV = {
 
 let t : Where<ENV, VerboseSyntaxKeys> = {
 	"table4.a4" : [5, col('table1.b1'), null, 3],
-	"{table1.c1} =": [3, 4],
-	
+	"{table1.c1} =": [3, 4],	
 }
 

@@ -1,4 +1,4 @@
-import { Column, Table } from "../types.js";
+import { Column, Environment, Table } from "../types.js";
 
 
 /** --------- Type Prettifiers  ------------- */
@@ -24,9 +24,9 @@ import { Column, Table } from "../types.js";
 	/**
 	* Transform every non-array typed properties in array typed properties
 	**/
-	export type UnArraying<T> = (T extends (infer U)[] ? U : T);
-	export type Arraying<T> = Array<T extends (infer U)[] ? U : T>;
-	export type Arrayed<T> = UnArraying<T> | Arraying<T>;
+	export type ElementOf<T> = T extends readonly (infer U)[] ? U : T;
+	export type ArrayOf<T> = ElementOf<T>[];
+	export type MaybeArray<T> = ElementOf<T> | ArrayOf<T>;
 
 
 
@@ -41,13 +41,13 @@ import { Column, Table } from "../types.js";
 	/**
 	* Extract T keys if T[keys] type is FV
 	*/
-	export type KeysOfType<Table, KeyType extends any> = { [k in keyof Table] : Table[k] extends KeyType ? k : never; }[keyof Table];
+	export type KeysOfType<Table, KeyType extends any> = { [k in keyof Table]-? : Table[k] extends KeyType ? k : never; }[keyof Table];
 
 
 	/**
 	* Extract T keys if T[keys] type is not FV
 	*/
-	export type KeysNotOfType<Table, KeyType extends any> = { [k in keyof Table] : Table[k] extends KeyType ? never : k }[keyof Table]
+	export type KeysNotOfType<Table, KeyType extends any> = { [k in keyof Table]-? : Table[k] extends KeyType ? never : k }[keyof Table]
 
 
 	/** 
@@ -97,6 +97,11 @@ import { Column, Table } from "../types.js";
 	OnlyOneTable basically change the whole type, in another project it would have been another type completely.
 	But its presence here drastically reduce complexity as this type is used everywhere other types would need to know there is only one table accessible.
 
+	
+	Functional notes :
+		* Checking OnlyOneTable is not done at root, even tough it would simplify the type, because this form allows TS to know that FlatEnvKeys are keyof FlatEnv
+		* Approaching all keys through a flat map allows each key to be independant. Take keys from each table and create a type from it (`T in keyof Env & string as \`${T}.${keyof Env[T] & string}\``) would give a larger key type with all table column, resulting in a broader column type.
+	
 	*/
 	export type FlatEnvKeys<
 		Env extends Environment,
@@ -109,7 +114,6 @@ import { Column, Table } from "../types.js";
 		OnlyOneTable extends keyof Env | undefined = undefined,
 	> =
 		{ [K in FlatEnvKeys<Env, OnlyOneTable>]: 		K extends `${infer T}.${infer C}` ? (Env[T & keyof Env][C & keyof Env[T & keyof Env]]) : (Env[OnlyOneTable & keyof Env][K & keyof Env[OnlyOneTable & keyof Env]]) };
-		// Checking OnlyOneTable is not done at root, even tough it would simplify the type, because this form allows TS to know that FlatEnvKeys are keyof FlatEnv
 
 	export type TablesWithType<Env extends Environment, Type extends any> =
 		{ [Table in keyof Env] : Type extends Env[Table][keyof Env[Table]] ? Table : never}[keyof Env];
@@ -134,7 +138,7 @@ export	type WrapKeyArrayedValue<
 		A extends Table,					// Accessible Flat Environment
 		Prefix extends string,
 		Suffix extends string
-	> = {	[k in K & string as `${Prefix}${k}${Suffix}`]? : Arrayed<T[k] | null | Column<KeysOfType<A, UnArraying<T[k]>> & (string & {})>>};
+	> = {	[k in K & string as `${Prefix}${k}${Suffix}`]? : MaybeArray<T[k] | null | Column<Extract<KeysOfType<A, ElementOf<T[k]>>, string>>>};
 
 
 	// { `${prefix}K${suffix} : T | null | col(A)
@@ -144,4 +148,4 @@ export	type WrapKeyNoArrayValue<
 		A extends Table,
 		Prefix extends string,
 		Suffix extends string
-	> = { [k in K & string as `${Prefix}${k}${Suffix}`]? : UnArraying<T[k]> | null | Column<KeysOfType<A, UnArraying<T[k]>> & (string & {})> };
+	> = { [k in K & string as `${Prefix}${k}${Suffix}`]? : ElementOf<T[k]> | null | Column<Extract<KeysOfType<A, ElementOf<T[k]>>, string>> };
