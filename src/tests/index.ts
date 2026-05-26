@@ -45,7 +45,7 @@ let t3 = new Helice<TestEnv, VerboseSyntaxKeys>()
 	// })
 
 
-let t1 = new Helice<TestEnv, VerboseSyntaxKeys>().select("table2").join({table1 : "column1 LEFT JOIN table2.column22"});
+// let t1 = new Helice<TestEnv, VerboseSyntaxKeys>().select("table2").join({table1 : "column1 LEFT JOIN table2.column22"});
 ;
 	// .where({
 	// 	"table1.column2" : 4,

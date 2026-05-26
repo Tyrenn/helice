@@ -1,4 +1,4 @@
-import { Simplify, Environment, Obj } from "../types";
+import { Simplify, Environment, Obj, UnionToIntersection } from "../types";
 import { SyntaxKeys, DefaultSyntaxKeys, SyntaxKeysConstant } from "../syntaxkeys.js";
 import { FlatEnv, FlatEnvKeys, StrKeys } from "./common";
 
@@ -252,6 +252,80 @@ Using an aggregation fn adds a GROUP BY clause on the `group` columns.
 			)>;
 
 
+
+
+/* =========================================================================
+   =  SrcEnvFromField — restricts environment to source columns used in F
+   ========================================================================= */
+
+	type EnvFromFlatKey<
+		Env extends Environment,
+		K extends string,
+		From extends keyof Env | undefined
+	> =
+		K extends `${infer T}.${infer C}`
+			? T extends keyof Env
+				? C extends keyof Env[T]
+					? { [t in T]: { [c in C]: Env[T][C] } }
+					: {}
+				: {}
+			: From extends keyof Env
+				? K extends keyof Env[From]
+					? { [t in From]: { [c in K & keyof Env[From]]: Env[From][K & keyof Env[From]] } }
+					: {}
+				: {};
+
+	type SrcEnvFromArray<
+		Env extends Environment,
+		Arr extends string[],
+		From extends keyof Env | undefined,
+		SK extends SyntaxKeys
+	> = Arr extends [infer Head extends string, ...infer Tail extends string[]]
+		? SrcEnvFromField<Env, Head & Field<Env, From, SK>, From, SK> & SrcEnvFromArray<Env, Tail, From, SK>
+		: {};
+
+	type SrcEnvFromObjectField<
+		Env extends Environment,
+		F extends Record<string, any>,
+		From extends keyof Env | undefined
+	> = UnionToIntersection<{
+		[K in keyof F]:
+			F[K] extends `${infer T}.${infer C}`
+				? T extends keyof Env
+					? C extends keyof Env[T]
+						? { [t in T]: { [c in C]: Env[T][C] } }
+						: {}
+					: {}
+				: From extends keyof Env
+					? F[K] extends keyof Env[From]
+						? { [t in From]: { [c in F[K] & keyof Env[From]]: Env[From][F[K] & keyof Env[From]] } }
+						: {}
+					: {}
+	}[keyof F]>;
+
+	export type SrcEnvFromField<
+		Env extends Environment,
+		F extends Field<Env, From, SK>,
+		From extends keyof Env | undefined = undefined,
+		SK extends SyntaxKeys = DefaultSyntaxKeys
+	> =
+		F extends '*'
+			? Env
+		: F extends `${infer T}.*`
+			? (T extends keyof Env ? { [K in T]: Env[K] } : Env)
+		: F extends `${string}${SK["alias"]}${string}`
+			? (F extends `${infer Base}${SK["alias"]}${string}`
+				? (Base extends FlatEnvKeys<Env, From>
+					? EnvFromFlatKey<Env, Base, From>
+					: Env)
+				: Env)
+		: F extends FlatEnvKeys<Env, From>
+			? EnvFromFlatKey<Env, F & string, From>
+		: F extends Array<string>
+			? SrcEnvFromArray<Env, F, From, SK>
+		: F extends Record<string, any>
+			? SrcEnvFromObjectField<Env, F, From>
+		: Env;
 
 
 /* =========================================================================
