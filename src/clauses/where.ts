@@ -1,7 +1,7 @@
 
-import { Table, Environment, Obj, Column, col} from '../types';
-import { DefaultSyntaxKeys, SKArrayCompareOPL, SKArrayCompareOPR, SKArrayEqualityOPL, SKArrayEqualityOPR, SKArrayLikeOPL, SKArrayLikeOPR, SKCompareOPL, SKCompareOPR, SKEqualityOPL, SKEqualityOPR, SKLikeOPL, SKLikeOPR, SyntaxKeys, SyntaxKeysConstant, VerboseSyntaxKeys } from '../syntaxkeys';
-import { MaybeArray, FlatEnv, KeysNotOfType, KeysOfArray, KeysOfNonArray, KeysOfNumber, KeysOfNumberArray, KeysOfString, KeysOfStringArray, KeysOfType, WrapKeyArrayedValue, WrapKeyNoArrayValue } from './common';
+import { Table, Environment, Obj, Column, col} from '../types.js';
+import { DefaultSyntaxKeys, SKArrayCompareOPL, SKArrayCompareOPR, SKArrayEqualityOPL, SKArrayEqualityOPR, SKArrayLikeOPL, SKArrayLikeOPR, SKCompareOPL, SKCompareOPR, SKEqualityOPL, SKEqualityOPR, SKLikeOPL, SKLikeOPR, SyntaxKeys, SyntaxKeysConstant, VerboseSyntaxKeys } from '../syntaxkeys.js';
+import { MaybeArray, FlatEnv, KeysNotOfType, KeysOfArray, KeysOfNonArray, KeysOfNumber, KeysOfNumberArray, KeysOfString, KeysOfStringArray, KeysOfType, WrapKeyArrayedValue, WrapKeyNoArrayValue } from './common.js';
 
 /****************
 		WHERE
@@ -106,6 +106,28 @@ Will translate in :
    ========================================================================= */
 	// TODO Should authorise : table
 	// TODO Test
+
+	/**
+	 * Restricts which tables and columns are accessible in a runtime WHERE clause.
+	 * - `true`                          → full table accessible
+	 * - `ReadonlyArray<colName>`        → only listed columns accessible
+	 */
+	export type WhereRestrictionSpec<Env extends Environment> = {
+		[K in keyof Env]?: true | ReadonlyArray<keyof Env[K] & string>
+	}
+
+	/**
+	 * Converts a WhereRestrictionSpec into a narrowed Environment containing only
+	 * the tables and columns allowed by the spec.
+	 */
+	export type EnvFromWhereRestrictionSpec<Env extends Environment, Spec extends WhereRestrictionSpec<Env>> = {
+		[K in keyof Spec & keyof Env]:
+			Spec[K] extends true
+				? Env[K]
+				: Spec[K] extends ReadonlyArray<infer Cols extends keyof Env[K] & string>
+					? { [C in Cols]: Env[K][C] }
+					: never
+	}
 
 	export type Where<
 		Env extends Environment,

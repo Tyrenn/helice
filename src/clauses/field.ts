@@ -1,6 +1,6 @@
-import { Simplify, Environment, Obj, UnionToIntersection } from "../types";
+import { Simplify, Environment, Obj, UnionToIntersection } from "../types.js";
 import { SyntaxKeys, DefaultSyntaxKeys, SyntaxKeysConstant } from "../syntaxkeys.js";
-import { FlatEnv, FlatEnvKeys, StrKeys } from "./common";
+import { FlatEnv, FlatEnvKeys, StrKeys } from "./common.js";
 
 
 /**=========================================================================

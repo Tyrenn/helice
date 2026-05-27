@@ -1,23 +1,30 @@
-import { Field, FieldHasDuplicateAliases, FieldParser, SrcEnvFromField, TableFromField } from "./clauses/field";
-import { EnvironmentFromJoin, Join, JoinHasDuplicateAliases, JoinParser } from "./clauses/join";
-import { mergeWHEREAsAND, Where, WhereParser } from "./clauses/where";
-import { DefaultSyntaxKeys, SyntaxKeys, SyntaxKeysConstant } from "./syntaxkeys";
-import { Environment, MethodResultType, Obj, PreparedQueryArguments, PreparedQueryOptions, Table } from "./types";
+import { Field, FieldHasDuplicateAliases, FieldParser, SrcEnvFromField, TableFromField } from "./clauses/field.js";
+import { EnvironmentFromJoin, Join, JoinHasDuplicateAliases, JoinParser } from "./clauses/join.js";
+import { shiftParams } from "./clauses/common.js";
+import { EnvFromWhereRestrictionSpec, mergeWHEREAsAND, Where, WhereParser, WhereRestrictionSpec } from "./clauses/where.js";
+import { DefaultSyntaxKeys, SyntaxKeys, SyntaxKeysConstant } from "./syntaxkeys.js";
+import { Environment, MethodResultType, Obj, Simplify, Table } from "./types.js";
 
-type PreparedSelectQueryArguments<
+export type SelectPrepareOptions<AccEnv extends Environment> = {
+	where?: boolean | WhereRestrictionSpec<AccEnv>,
+	field?: boolean,
+	limit?: boolean
+}
+
+export type SelectPrepareArgs<
 	AccEnv     extends Environment,
 	FieldScope extends Environment,
-	SK         extends SyntaxKeys = DefaultSyntaxKeys
-> = {
-	field? : Field<FieldScope, undefined, SK>,
-	where? : Where<AccEnv, SK>,
-	limit? : number
-}
-
-function shiftParams(sql: string, offset: number): string {
-	if (offset === 0) return sql;
-	return sql.replace(/\$(\d+)/g, (_, n) => `$${parseInt(n) + offset}`);
-}
+	SK         extends SyntaxKeys,
+	Opts
+> = Simplify<
+	(Opts extends { where: true }
+		? { where?: Where<AccEnv, SK> }
+		: Opts extends { where: infer W extends WhereRestrictionSpec<AccEnv> }
+			? { where?: Where<EnvFromWhereRestrictionSpec<AccEnv, W>, SK> }
+			: {})
+	& (Opts extends { field: true } ? { field?: Field<FieldScope, undefined, SK> } : {})
+	& (Opts extends { limit: true } ? { limit?: number } : {})
+>
 
 /**
  * Fluent builder for a SELECT query.
@@ -70,7 +77,7 @@ export class SelectQuery<
 		CTEFieldScope extends Environment                      = any,
 		CTEFrom       extends keyof CTEAccEnv | undefined      = any,
 		CTESK         extends SyntaxKeys                       = DefaultSyntaxKeys,
-		CTEOpts       extends PreparedQueryOptions<PreparedSelectQueryArguments<CTEAccEnv, CTEFieldScope, CTESK>> = {}
+		CTEOpts       extends SelectPrepareOptions<CTEAccEnv>  = {}
 	>(
 		alias   : Alias,
 		cte     : Pick<SelectQuery<any, CTEAccEnv, CTETable, CTEFrom, CTESK, CTEFieldScope, any>, 'prepare'>,
@@ -83,7 +90,7 @@ export class SelectQuery<
 				AccEnv,
 				TableResult, From, SK,
 				FieldScope,
-				CTEArgs & ([PreparedQueryArguments<CTEOpts>] extends [undefined] ? {} : { [K in Alias]?: PreparedQueryArguments<CTEOpts> })
+				CTEArgs & ([keyof SelectPrepareArgs<CTEAccEnv, CTEFieldScope, CTESK, CTEOpts>] extends [never] ? {} : { [K in Alias]?: SelectPrepareArgs<CTEAccEnv, CTEFieldScope, CTESK, CTEOpts> })
 			>,
 			typeof this, never
 		>;
@@ -128,11 +135,12 @@ export class SelectQuery<
 	}
 
 
-	prepare<A extends PreparedSelectQueryArguments<AccEnv, FieldScope>>(options? : PreparedQueryOptions<A>, format? : { pretty?: boolean }) :
-		(args? : PreparedQueryArguments<A> & ([keyof CTEArgs] extends [never] ? {} : { ctes?: CTEArgs })) => { query : string, args : any[] }
+
+	prepare<const Opts extends SelectPrepareOptions<AccEnv>>(options? : Opts, format? : { pretty?: boolean }) :
+		(args? : SelectPrepareArgs<AccEnv, FieldScope, SK, Opts> & CTEArgs) => { query : string, args : any[] }
 	{
 		return (args? : any) => {
-			const castedArgs = args as (A & { ctes?: CTEArgs }) | undefined;
+			const castedArgs = args as (SelectPrepareArgs<AccEnv, FieldScope, SK, Opts> & CTEArgs) | undefined;
 			const pretty     = format?.pretty ?? true;
 
 			// ── CTEs ─────────────────────────────────────────────────────────
@@ -141,7 +149,7 @@ export class SelectQuery<
 			let   paramOffset          = 0;
 
 			for(const { alias, preparedFn } of this.#ctes){
-				const result     = preparedFn(castedArgs?.ctes?.[alias]);
+				const result     = preparedFn((castedArgs as any)?.[alias]);
 				const shiftedSQL = shiftParams(result.query, paramOffset);
 				cteParts.push(`${alias} AS (\n${shiftedSQL}\n)`);
 				cteArgs.push(...result.args);

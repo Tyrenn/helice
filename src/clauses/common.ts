@@ -18,6 +18,15 @@ import { Column, Environment, Table } from "../types.js";
 
 
 
+/** --------- SQL Utilities ------------- */
+
+export function shiftParams(sql: string, offset: number): string {
+	if (offset === 0) return sql;
+	return sql.replace(/\$(\d+)/g, (_, n) => `$${parseInt(n) + offset}`);
+}
+
+
+
 /** --------- Props Type Utilities  ------------- */
 
 

@@ -1,25 +1,33 @@
 {
-	"name": "quilder",
+	"name": "helice",
 	"version": "0.0.1",
-	"description": "PostgreSQL Query Builder",
-	"main": "./src",
+	"description": "Typesafe PostgreSQL Query Builder",
+	"main"   : "./build/index.js",
+	"types"  : "./build/index.d.ts",
+	"exports": {
+		".": {
+			"import": "./build/index.js",
+			"types" : "./build/index.d.ts"
+		}
+	},
+	"files": ["build"],
 	"scripts": {
-		"build"       : "tsc",
-		"start"       : "node ./build",
-		"test"        : "tsx src/tests/index.ts",
-		"test:select" : "tsx src/tests/select.ts",
-		"test:file"   : "tsx"
+		"build"      : "tsc",
+		"start"      : "node ./build",
+		"test"       : "vitest run",
+		"test:watch" : "vitest",
+		"test:file"  : "tsx",
+		"changeset"  : "changeset",
+		"version"    : "changeset version",
+		"release"    : "pnpm build && changeset publish"
 	},
 	"author": "",
-	"license": "ISC",
-	"imports": {
-		"*.js": "./build/*.js",
-		"*": "./build/*.js"
-	},
-	"dependencies": {
-		"typescript": "^5.9.3"
-	},
+	"type": "module",
+	"license": "MIT",
 	"devDependencies": {
-		"tsx": "^4.22.3"
+		"@changesets/cli": "^2.31.0",
+		"tsx"            : "^4.22.3",
+		"typescript"     : "^5.9.3",
+		"vitest"         : "^4.1.7"
 	}
 }

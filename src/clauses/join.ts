@@ -1,6 +1,6 @@
-import { col, Column, Environment, Obj, Simplify, Table } from "../types";
-import { DefaultSyntaxKeys, SKArrayCompareOPL, SKArrayCompareOPR, SKArrayEqualityOPL, SKArrayEqualityOPR, SKArrayLikeOPL, SKArrayLikeOPR, SKCompareOPL, SKCompareOPR, SKEqualityOPL, SKEqualityOPR, SKLikeOPL, SKLikeOPR, SyntaxKeys, SyntaxKeysConstant, VerboseSyntaxKeys } from "../syntaxkeys";
-import { FlatEnv, KeysOfArray, KeysOfNonArray, KeysOfNumber, KeysOfNumberArray, KeysOfString, KeysOfStringArray, KeysOfType, StrKeys, TablesWithoutType, TablesWithType, WrapKeyArrayedValue, WrapKeyNoArrayValue } from "./common";
+import { col, Column, Environment, Obj, Simplify, Table } from "../types.js";
+import { DefaultSyntaxKeys, SKArrayCompareOPL, SKArrayCompareOPR, SKArrayEqualityOPL, SKArrayEqualityOPR, SKArrayLikeOPL, SKArrayLikeOPR, SKCompareOPL, SKCompareOPR, SKEqualityOPL, SKEqualityOPR, SKLikeOPL, SKLikeOPR, SyntaxKeys, SyntaxKeysConstant, VerboseSyntaxKeys } from "../syntaxkeys.js";
+import { FlatEnv, KeysOfArray, KeysOfNonArray, KeysOfNumber, KeysOfNumberArray, KeysOfString, KeysOfStringArray, KeysOfType, StrKeys, TablesWithoutType, TablesWithType, WrapKeyArrayedValue, WrapKeyNoArrayValue } from "./common.js";
 
 /****************
 		JOIN

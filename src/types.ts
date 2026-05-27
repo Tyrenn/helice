@@ -54,6 +54,7 @@ export function col<c extends string>(n : c) : Column<c>{
 
 export type PreparedQueryOptions<Obj extends Record<any, any>> = {[key in keyof Obj]? : boolean}
 
+
 type PreparedQueryOptionsIsAllFalseOrUndefined<Obj extends Record<any, any>> = {[ k in keyof Obj] : PreparedQueryOptions<Obj>[k] extends true ? k : never}[keyof Obj] extends never ? true : false;
 
 export type PreparedQueryArguments<Options extends Record<any, any>> =

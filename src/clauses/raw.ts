@@ -1,4 +1,5 @@
-import { Environment, FlatEnvKeys } from "../types";
+import { Environment } from "../types.js";
+import { FlatEnvKeys } from "./common.js";
 
 type SplitTokens<S extends string> =
   S extends `${infer A} ${infer B}` ? [...SplitTokens<A>, ...SplitTokens<B>] :
