@@ -66,12 +66,12 @@ export type PreparedQueryArguments<Options extends Record<any, any>> =
 
 
 
-/**
- *
- */
-export interface CommonTableExpression<TableResult extends Table, SpectificPreparedQueryArguments extends Obj>{
-	prepare<A extends SpectificPreparedQueryArguments>(options? : PreparedQueryOptions<A>) : (args : PreparedQueryArguments<A>) => {query : string, args : any[]};
-}
+// /**
+//  *
+//  */
+// export interface CommonTableExpression<TableResult extends Table, SpectificPreparedQueryArguments extends Obj>{
+// 	prepare<A extends SpectificPreparedQueryArguments>(options? : PreparedQueryOptions<A>) : (args : PreparedQueryArguments<A>) => {query : string, args : any[]};
+// }
 
 
 

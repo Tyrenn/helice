@@ -28,9 +28,9 @@ The field as an object is most complete and powerful form :
 ```
 {
 	"c1"    : "table1.column1",               // column reference → typed as column type
-	"label" : "Hello",                        // string literal   → typed as string
 	"count" : 42,                             // number literal   → typed as number
 	"flag"  : true,                           // boolean literal  → typed as boolean
+	"label" : "'Hello'",                      // string literal   → wrap in single quotes
 
 	"agg1": {                               	// aggregation
 		fn    : "json_agg",                   	// "json_agg" | "array_agg"
@@ -176,8 +176,8 @@ Using an aggregation fn adds a GROUP BY clause on the `group` columns.
 		OnlyOneTable extends keyof Env | undefined = undefined,
 		SK extends SyntaxKeys = DefaultSyntaxKeys
 	> =
-		| FlatEnvKeys<Env, OnlyOneTable>	// autocomplete suggests column names first
-		| (string & {})						// still accepts arbitrary string literals
+		| FlatEnvKeys<Env, OnlyOneTable>
+		| `'${string}'`
 		| number
 		| boolean
 		| FieldObjectAggValue<Env, OnlyOneTable, SK>
@@ -548,7 +548,7 @@ let f1 : Field<TestEnv> = {
 
 // Scalar literals
 let f2 : Field<TestEnv> = {
-	"label" : "Hello",
+	"label" : "'Hello'",
 	"count" : 42,
 	"flag"  : true,
 }

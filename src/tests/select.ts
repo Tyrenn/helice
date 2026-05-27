@@ -53,7 +53,7 @@ const verboseDb = new Helice<BlogEnv, VerboseSyntaxKeys>(VerboseSyntaxKeys);
 //  FROM user
 
 const ex1 = db.select('user')
-	.prepareClaude()();
+	.prepare()();
 console.log(ex1);
 
 
@@ -66,7 +66,7 @@ console.log(ex1);
 
 const ex2 = db.select('user')
 	.field(['id', 'name', 'email'])
-	.prepareClaude()();
+	.prepare()();
 console.log(ex2);
 
 
@@ -78,7 +78,7 @@ console.log(ex2);
 
 const ex3 = db.select('post')
 	.field('id@postId')
-	.prepareClaude()();
+	.prepare()();
 console.log(ex3);
 
 
@@ -96,7 +96,7 @@ const ex4 = db.select('post')
 		published  : true,
 		'>=:views' : 1000,
 	})
-	.prepareClaude()();
+	.prepare()();
 console.log(ex4);
 
 
@@ -115,7 +115,7 @@ const ex5 = db.select('post')
 			{ '~~:title' : '%TypeScript%' },
 		],
 	})
-	.prepareClaude()();
+	.prepare()();
 console.log(ex5);
 
 
@@ -135,11 +135,11 @@ const ex6 = db.select('post')
 	})
 	.where({ published: true })
 	.limit(5)
-	.prepareClaude()();
+	.prepare()();
 console.log(ex6);
 
 
-// ── 7. prepareClaude with runtime where + limit ───────────────────────────────
+// ── 7. prepare with runtime where + limit ───────────────────────────────
 //  Options {where:true, limit:true} expose those args at call time.
 //  The static where is merged with the runtime where via AND.
 //
@@ -151,7 +151,7 @@ console.log(ex6);
 
 const findPosts = db.select('post')
 	.where({ published: true })
-	.prepareClaude({ where: true, limit: true });
+	.prepare({ where: true, limit: true });
 
 const ex7 = findPosts({ where: { '>=:views': 500 }, limit: 10 });
 console.log(ex7);
@@ -177,7 +177,7 @@ const ex8 = db.select('post')
 		authorName : 'user.name',
 	})
 	.where({ 'post.published': true })
-	.prepareClaude()();
+	.prepare()();
 console.log(ex8);
 
 
@@ -199,7 +199,7 @@ const ex9 = db.select('post')
 		title  : 'post.title',
 	})
 	.where({ 'user.active': true })
-	.prepareClaude()();
+	.prepare()();
 console.log(ex9);
 
 
@@ -219,7 +219,7 @@ const ex10 = verboseDb.select('post')
 		title  : 'post.title',
 	})
 	.where({ 'user.active =': true })
-	.prepareClaude()();
+	.prepare()();
 console.log(ex10);
 
 
@@ -248,7 +248,7 @@ const ex11 = db.select('post')
 		}
 	})
 	.where({ 'post.published': true })
-	.prepareClaude()();
+	.prepare()();
 console.log(ex11);
 
 
@@ -279,13 +279,13 @@ const ex12 = db.select('post')
 		title  : 'post.title',
 	})
 	.where({ 'post.published': true })
-	.prepareClaude()();
+	.prepare()();
 console.log(ex12);
 
 
 // ── 13. CTE with runtime args ─────────────────────────────────────────────────
 //  Passing { where: true } to .with() exposes the CTE's where at call time.
-//  The outer prepareClaude also exposes its own runtime args.
+//  The outer prepare also exposes its own runtime args.
 //  Runtime CTE args are passed under { ctes: { cteName: { ... } } }.
 //
 //  WITH active_user AS (
@@ -303,13 +303,13 @@ const runtimeCTE = db.select('user')
 
 const postsForUser = db.select('post')
 	.with('active_user', runtimeCTE, { where: true })
-	.join({ active_user: 'id = post.author_id' })
+	// .join({ active_user: 'id = post.author_id' })
 	.field({
-		userId : 'active_user.id',
-		title  : 'post.title',
+		userId : "content",
+		title  : "azadazd",
 	})
 	.where({ 'post.published': true })
-	.prepareClaude({ where: true });
+	.prepare({ where: true });
 
 const ex13 = postsForUser({
 	where : { '>=:post.views': 200 },
@@ -335,7 +335,7 @@ const staticFieldQuery = db.select('post')
 		postTitle : 'title',
 		postViews : 'views',
 	})
-	.prepareClaude({ field: true });
+	.prepare({ field: true });
 
 // Full static set, with re-aliasing
 const ex14a = staticFieldQuery({ field: { myId: 'post.id', myTitle: 'post.title', myViews: 'post.views' } });

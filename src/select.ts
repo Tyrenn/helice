@@ -2,7 +2,7 @@ import { Field, FieldHasDuplicateAliases, FieldParser, SrcEnvFromField, TableFro
 import { EnvironmentFromJoin, Join, JoinHasDuplicateAliases, JoinParser } from "./clauses/join";
 import { mergeWHEREAsAND, Where, WhereParser } from "./clauses/where";
 import { DefaultSyntaxKeys, SyntaxKeys, SyntaxKeysConstant } from "./syntaxkeys";
-import { CommonTableExpression, Environment, MethodResultType, Obj, PreparedQueryArguments, PreparedQueryOptions, Table } from "./types";
+import { Environment, MethodResultType, Obj, PreparedQueryArguments, PreparedQueryOptions, Table } from "./types";
 
 type PreparedSelectQueryArguments<
 	AccEnv     extends Environment,
@@ -45,10 +45,10 @@ export class SelectQuery<
 	SK          extends SyntaxKeys,
 	FieldScope  extends Environment         = AccEnv,
 	CTEArgs     extends Record<string, any> = {}
-> implements CommonTableExpression<TableResult, PreparedSelectQueryArguments<AccEnv, FieldScope>> {
+> {
 
 	/** Phantom property: not present at runtime, only for type inference in `.with()`. */
-	declare readonly tableResult: TableResult;
+	declare readonly inferTableType: TableResult;
 
 	#from  : string;
 	#sk    : SyntaxKeysConstant;
@@ -73,29 +73,21 @@ export class SelectQuery<
 		CTEOpts       extends PreparedQueryOptions<PreparedSelectQueryArguments<CTEAccEnv, CTEFieldScope, CTESK>> = {}
 	>(
 		alias   : Alias,
-		cte     : Pick<SelectQuery<any, CTEAccEnv, CTETable, CTEFrom, CTESK, CTEFieldScope, any>, 'prepareClaude' | 'tableResult'>,
+		cte     : Pick<SelectQuery<any, CTEAccEnv, CTETable, CTEFrom, CTESK, CTEFieldScope, any>, 'prepare'>,
 		options?: CTEOpts
 	){
-		this.#ctes.push({ alias, preparedFn: cte.prepareClaude(options as any) });
+		this.#ctes.push({ alias, preparedFn: cte.prepare(options as any) });
 		return (this as unknown) as MethodResultType<
 			SelectQuery<
-				Env,
-				AccEnv & { [K in Alias]: CTETable },
+				Env & { [K in Alias]: CTETable },
+				AccEnv,
 				TableResult, From, SK,
-				FieldScope  & { [K in Alias]: CTETable },
+				FieldScope,
 				CTEArgs & ([PreparedQueryArguments<CTEOpts>] extends [undefined] ? {} : { [K in Alias]?: PreparedQueryArguments<CTEOpts> })
 			>,
 			typeof this, never
 		>;
 	}
-
-	// Should return a function ready to accept field, where, limit, offset parameters
-	prepare<A extends PreparedSelectQueryArguments<AccEnv, FieldScope>>(_options? : PreparedQueryOptions<A>) : (args : PreparedQueryArguments<A>) => {query : string, args : any[]} {
-		return (_args? : PreparedQueryArguments<A>) => {
-			return "" as any; // TODO
-		}
-	}
-
 
 	field<const F extends Field<AccEnv, From, SK>>(
 		field : [FieldHasDuplicateAliases<F, SK>] extends [false] ? F : "[WARNING] : Duplicated Column Alias"
@@ -136,7 +128,7 @@ export class SelectQuery<
 	}
 
 
-	prepareClaude<A extends PreparedSelectQueryArguments<AccEnv, FieldScope>>(options? : PreparedQueryOptions<A>, format? : { pretty?: boolean }) :
+	prepare<A extends PreparedSelectQueryArguments<AccEnv, FieldScope>>(options? : PreparedQueryOptions<A>, format? : { pretty?: boolean }) :
 		(args? : PreparedQueryArguments<A> & ([keyof CTEArgs] extends [never] ? {} : { ctes?: CTEArgs })) => { query : string, args : any[] }
 	{
 		return (args? : any) => {
