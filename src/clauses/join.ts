@@ -449,7 +449,7 @@ export class JoinParser{
 		if (!match || !match.groups?.name)
 			return;
 
-		const fromtemp = `JOIN ${match.groups?.name}${!!match.groups?.alias && ' AS ' + match.groups?.alias}\n\tON ${match.groups?.alias ?? match.groups?.name}.${value}`;
+		const fromtemp = `JOIN ${match.groups?.name}${match.groups?.alias ? ' AS ' + match.groups?.alias : ''}\n\tON ${match.groups?.alias ?? match.groups?.name}.${value}`;
 
 		if(!match.groups.type || match.groups.type === "" || match.groups.type === this.SK['leftJoin'])
 			return this.from += `LEFT ${fromtemp}`;
@@ -471,7 +471,7 @@ export class JoinParser{
 		if (!match || !match.groups?.name)
 			return;
 		
-		this.from += `${value[this.SK["join"]]} JOIN ${match.groups?.name}${!!match.groups?.alias && ' AS ' + match.groups?.alias}\n\tON `;
+		this.from += `${value[this.SK["join"]]} JOIN ${match.groups?.name}${match.groups?.alias ? ' AS ' + match.groups?.alias : ''}\n\tON `;
 		const { [this.SK["join"]]: _, ...rest } = value;
 
 		for(let key in rest){
@@ -496,9 +496,9 @@ export class JoinParser{
 		for(const prop in join){
 			this.parseStringJoin(prop, join[prop]);
 			this.parseObjectJoin(prop, join[prop]);
-			this.from += ` \n`;
+			this.from += `\n`;
 		}
-		this.from = this.from.slice(0,-3);
+		this.from = this.from.slice(0,-1);
 	}
 }
 

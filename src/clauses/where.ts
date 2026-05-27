@@ -229,21 +229,23 @@ export class WhereParser{
 	from : string = "";
 
 	readonly SK : SyntaxKeysConstant;
-	
+	readonly pretty : boolean;
+
 	readonly VALUE_REGEX : RegExp;
 	readonly ARRAY_REGEX : RegExp;
 	readonly TSQUERY_REGEX : RegExp;
 	readonly AND_REGEX : RegExp;
 
-	constructor(sk : SyntaxKeysConstant){
-		this.SK = sk;
+	constructor(sk : SyntaxKeysConstant, pretty : boolean = true){
+		this.SK     = sk;
+		this.pretty = pretty;
 
-		// Match `{sk[]}name{sk[]}` and `name`
+		// Match `{sk[]}name{sk[]}` and `name` (opl is optional — allows plain equality keys)
 		this.VALUE_REGEX = new RegExp(
 			String.raw`^(?<opl>(?:${
 				[ this.SK['likeL'], this.SK['softLikeL'], this.SK['dislikeL'], this.SK['softDislikeL'], this.SK['regexLikeL'], this.SK['softRegexLikeL'], this.SK['equalityL'], this.SK['inequalityL'], this.SK['softSuperiorL'], this.SK['softInferiorL'], this.SK['strictSuperiorL'], this.SK['strictInferiorL']]
 					.flatMap(v => Array.isArray(v) ? v : [v]).map(v => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
-			}))(?<name>[A-Za-z0-9_.]+)(?<opr>${
+			}|))(?<name>[A-Za-z0-9_.]+)(?<opr>${
 				[ this.SK['likeR'], this.SK['softLikeR'], this.SK['dislikeR'], this.SK['softDislikeR'], this.SK['regexLikeR'], this.SK['softRegexLikeR'], this.SK['equalityR'], this.SK['inequalityR'], this.SK['softSuperiorR'], this.SK['softInferiorR'], this.SK['strictSuperiorR'], this.SK['strictInferiorR']]
 					.flatMap(v => Array.isArray(v) ? v : [v]).map(v => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
 			})$`);
@@ -458,50 +460,50 @@ export class WhereParser{
 	}
 
 
-	private parseAND(key : string, value : any){
+	private parseAND(key : string, value : any, depth : number){
 		const match = key.match(this.AND_REGEX);
-
-		if (!match || !match.groups?.name)
-			return;
-		
-		this.parse(value, this.idx);
+		if (!match || !match.groups?.name) return;
+		this._parseInternal(value, depth);
 	}
 
-	parse(where: Obj | Obj[], idx : number = 1){
-		this.idx = idx;
-		this.values = [];
+	private _parseInternal(where: Obj | Obj[], depth: number){
+		const tab    = (n : number) => '\t'.repeat(n);
+		const andSep = this.pretty ? `\n${tab(depth)}AND ` : ' AND ';
 
 		if(Array.isArray(where)){
-				this.where += ' ( ';
-			let currentDollarIdx = this.idx;
-			for(const w of where){
-
-				if(this.idx > currentDollarIdx) // At least one statement has been added
-					this.where += ` OR `;
-
-				this.where += ' ( ';
-				this.parse(w, this.idx)
-				this.where += ' ) ';
-				currentDollarIdx = this.idx;
+			this.where += '(';
+			for(let i = 0; i < where.length; i++){
+				if(i > 0){
+					this.where += this.pretty ? `\n${tab(depth + 1)}OR ` : ' OR ';
+				} else {
+					this.where += this.pretty ? `\n${tab(depth + 1)}` : ' ';
+				}
+				this.where += this.pretty ? `(\n${tab(depth + 2)}` : '( ';
+				this._parseInternal(where[i], depth + 2);
+				this.where += this.pretty ? `\n${tab(depth + 1)})` : ' )';
 			}
+			this.where += this.pretty ? `\n${tab(depth)})` : ' ) ';
 			return;
 		}
 
 		for(const prop in where){
-			if(where[prop] === undefined)
-					continue;
-
-			this.parseAND(prop, where[prop]);
+			if(where[prop] === undefined) continue;
+			this.parseAND(prop, where[prop], depth);
 			this.parseTSQuery(prop, where[prop]);
 			this.parseArray(prop, where[prop]);
 			this.parseValue(prop, where[prop]);
-
-			this.where += ' AND ';
+			this.where += andSep;
 		}
-		
-		this.where = this.where.slice(0,-5);
 
-		return;
+		this.where = this.where.slice(0, -andSep.length);
+	}
+
+	parse(where: Obj | Obj[], idx : number = 1){
+		this.idx    = idx;
+		this.values = [];
+		this.where  = '';
+		this.from   = '';
+		this._parseInternal(where, 0);
 	}
 }
 
@@ -549,15 +551,21 @@ export class WhereParser{
 */
 
 
-export function mergeWHEREAsAND(...where : (string|undefined)[]){
+export function mergeWHEREAsAND(pretty : boolean, ...where : (string|undefined)[]){
 	let res = '';
 	for(const s of where){
-		if(s && s.replace(/\s/g, '').length > 0)
-			res += s + ' AND '
+		if(s && s.replace(/\s/g, '').length > 0){
+			if(res) res += pretty ? '\nAND ' : ' AND ';
+			res += s;
+		}
 	}
-	res = res.slice(0, -5);
 
-	return res && res.replace(/\s/g, '').length > 0 ? `( ${res} )` : '';
+	if(!res || res.replace(/\s/g, '').length === 0) return '';
+
+	if(pretty)
+		return '(\n\t' + res.replace(/\n/g, '\n\t') + '\n)';
+	else
+		return `( ${res} )`;
 }
 
 

@@ -136,11 +136,12 @@ export class SelectQuery<
 	}
 
 
-	prepareClaude<A extends PreparedSelectQueryArguments<AccEnv, FieldScope>>(options? : PreparedQueryOptions<A>) :
+	prepareClaude<A extends PreparedSelectQueryArguments<AccEnv, FieldScope>>(options? : PreparedQueryOptions<A>, format? : { pretty?: boolean }) :
 		(args? : PreparedQueryArguments<A> & ([keyof CTEArgs] extends [never] ? {} : { ctes?: CTEArgs })) => { query : string, args : any[] }
 	{
 		return (args? : any) => {
 			const castedArgs = args as (A & { ctes?: CTEArgs }) | undefined;
+			const pretty     = format?.pretty ?? true;
 
 			// ── CTEs ─────────────────────────────────────────────────────────
 			const cteParts  : string[] = [];
@@ -171,7 +172,7 @@ export class SelectQuery<
 
 			// ── WHERE ────────────────────────────────────────────────────────
 			// Static where starts after join parameters ($joinParser.idx).
-			const whereParser = new WhereParser(this.#sk);
+			const whereParser = new WhereParser(this.#sk, pretty);
 			if(this.#where)
 				whereParser.parse(this.#where as Obj, joinParser.idx);
 
@@ -179,13 +180,13 @@ export class SelectQuery<
 			let runtimeWhereSQL    = '';
 			let runtimeWhereValues : any[] = [];
 			if(options?.where && castedArgs?.where){
-				const runtimeParser = new WhereParser(this.#sk);
+				const runtimeParser = new WhereParser(this.#sk, pretty);
 				runtimeParser.parse(castedArgs.where as Obj, whereParser.idx);
 				runtimeWhereSQL    = runtimeParser.where;
 				runtimeWhereValues = runtimeParser.values;
 			}
 
-			const whereSQL = mergeWHEREAsAND(whereParser.where, runtimeWhereSQL);
+			const whereSQL = mergeWHEREAsAND(pretty, whereParser.where, runtimeWhereSQL);
 
 			// ── LIMIT ─────────────────────────────────────────────────────────
 			const limit = (options?.limit && castedArgs?.limit != null) ? castedArgs.limit : this.#limit;
