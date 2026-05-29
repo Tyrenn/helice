@@ -27,6 +27,7 @@ export function shiftParams(sql: string, offset: number): string {
 
 
 
+
 /** --------- Props Type Utilities  ------------- */
 
 
@@ -59,8 +60,14 @@ export function shiftParams(sql: string, offset: number): string {
 	export type KeysNotOfType<Table, KeyType extends any> = { [k in keyof Table]-? : Table[k] extends KeyType ? never : k }[keyof Table]
 
 
-	/** 
-	* Precomputed Key groups 
+	/**
+	 * Removes the index signature from an Environment type, keeping only its literal string keys.
+	 * Used to prevent index-signature broadening when passing FieldScope to Field<>.
+	 */
+	export type StrictEnv<T extends Environment> = { [K in keyof T as string extends K ? never : K]: T[K] };
+
+	/**
+	* Precomputed Key groups
 	*/
 
 	export type KeysOfArray<T> = KeysOfType<T, any[]>;
@@ -69,6 +76,10 @@ export function shiftParams(sql: string, offset: number): string {
 	export type KeysOfNonArray<T> = KeysNotOfType<T, any[]>;
 	export type KeysOfNumber<T> = KeysOfType<T, number>;
 	export type KeysOfNumberArray<T> = KeysOfType<T, number[]>;
+	/** Keys whose value is a plain object (not an array, not a primitive). Targets JSONB columns. */
+	export type KeysOfObject<T> = {
+		[k in keyof T]-?: NonNullable<T[k]> extends any[] ? never : NonNullable<T[k]> extends object ? k : never
+	}[keyof T];
 
 
 

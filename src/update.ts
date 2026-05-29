@@ -1,5 +1,6 @@
 import { Field, FieldHasDuplicateAliases, FieldParser, TableFromField } from "./clauses/field.js";
-import { shiftParams } from "./clauses/common.js";
+import { shiftParams, FlatEnv, FlatEnvKeys } from "./clauses/common.js";
+import { In, buildInClauses } from "./clauses/in.js";
 import { mergeWHEREAsAND, Where, WhereParser, EnvFromWhereRestrictionSpec, WhereRestrictionSpec } from "./clauses/where.js";
 import { ValuesParser } from "./clauses/values.js";
 import { DefaultSyntaxKeys, SyntaxKeys, SyntaxKeysConstant } from "./syntaxkeys.js";
@@ -57,17 +58,19 @@ export class UpdateQuery<
 	/** Phantom: exposes ReturnType for external `typeof query.inferTableType` inference. */
 	declare readonly inferTableType : ReturnType;
 
-	#table    : string;
-	#sk       : SyntaxKeysConstant;
-	#set      : Obj | undefined;
-	#where    : Obj | undefined;
-	#using    : string[] = [];
-	#returning: Field<Pick<Env, T>, T, SK> | undefined;
-	#ctes     : Array<{ alias: string, preparedFn: (args?: any) => { query: string, args: any[] } }> = [];
+	#table     : string;
+	#sk        : SyntaxKeysConstant;
+	#set       : Obj | undefined;
+	#where     : Obj | undefined;
+	#using     : string[] = [];
+	#returning : Field<Pick<Env, T>, T, SK> | undefined;
+	#in : In[] = [];
+	#ctes      : Array<{ alias: string, preparedFn: (args?: any) => { query: string, args: any[] } }> = [];
 
-	constructor(table : T, sk : SyntaxKeysConstant = DefaultSyntaxKeys) {
+	constructor(table : T, sk : SyntaxKeysConstant = DefaultSyntaxKeys, preCTEs?: Array<{ alias: string, preparedFn: (args?: any) => { query: string, args: any[] } }>) {
 		this.#table = table;
 		this.#sk    = sk;
+		if(preCTEs?.length) this.#ctes = [...preCTEs];
 	}
 
 	/**
@@ -95,9 +98,9 @@ export class UpdateQuery<
 			UpdateQuery<
 				Env & { [K in Alias]: CTETable },
 				AccEnv, T, SK, ReturnType,
-				CTEArgs & ([keyof SelectPrepareArgs<CTEAccEnv, CTEFieldScope, CTESK, CTEOpts>] extends [never]
+				CTEArgs & ([keyof SelectPrepareArgs<CTEAccEnv, CTEFieldScope, CTESK, CTEOpts, CTEFrom>] extends [never]
 					? {}
-					: { [K in Alias]?: SelectPrepareArgs<CTEAccEnv, CTEFieldScope, CTESK, CTEOpts> })
+					: { [K in Alias]?: SelectPrepareArgs<CTEAccEnv, CTEFieldScope, CTESK, CTEOpts, CTEFrom> })
 			>,
 			typeof this, never
 		>;
@@ -142,6 +145,44 @@ export class UpdateQuery<
 		>;
 	}
 
+	in<Col extends FlatEnvKeys<AccEnv, T> & string>(
+		column   : Col,
+		subquery : Pick<SelectQuery<any, any, Record<string, FlatEnv<AccEnv, T>[Col & keyof FlatEnv<AccEnv, T>]>, any, any>, 'prepare'>
+	) {
+		this.#in.push({ column, not: false, fn: (subquery as any).prepare() });
+		return (this as unknown) as MethodResultType<
+			UpdateQuery<Env, AccEnv, T, SK, ReturnType, CTEArgs>,
+			typeof this, "using" | "with"
+		>;
+	}
+
+	notIn<Col extends FlatEnvKeys<AccEnv, T> & string>(
+		column   : Col,
+		subquery : Pick<SelectQuery<any, any, Record<string, FlatEnv<AccEnv, T>[Col & keyof FlatEnv<AccEnv, T>]>, any, any>, 'prepare'>
+	) {
+		this.#in.push({ column, not: true, fn: (subquery as any).prepare() });
+		return (this as unknown) as MethodResultType<
+			UpdateQuery<Env, AccEnv, T, SK, ReturnType, CTEArgs>,
+			typeof this, "using" | "with"
+		>;
+	}
+
+	exists(subquery : Pick<SelectQuery<any, any, any, any, any>, 'prepare'>) {
+		this.#in.push({ not: false, fn: (subquery as any).prepare() });
+		return (this as unknown) as MethodResultType<
+			UpdateQuery<Env, AccEnv, T, SK, ReturnType, CTEArgs>,
+			typeof this, "using" | "with"
+		>;
+	}
+
+	notExists(subquery : Pick<SelectQuery<any, any, any, any, any>, 'prepare'>) {
+		this.#in.push({ not: true, fn: (subquery as any).prepare() });
+		return (this as unknown) as MethodResultType<
+			UpdateQuery<Env, AccEnv, T, SK, ReturnType, CTEArgs>,
+			typeof this, "using" | "with"
+		>;
+	}
+
 	/**
 	 * Adds a RETURNING clause. Accepts the same syntax as SELECT's `.field()`.
 	 */
@@ -156,23 +197,23 @@ export class UpdateQuery<
 	}
 
 	/**
-	 * Returns a prepared function that generates `{ query, args }`.
+	 * Returns a reusable function that generates `{ query, args }` on each call.
 	 *
-	 * Options:
-	 * - `set: true`     → the prepared function accepts `{ set: {...} }` at call time.
-	 * - `where: true`   → accepts `{ where: {...} }` at call time; merged AND with static WHERE.
-	 * - `where: spec`   → same as `true` but restricts which columns the runtime WHERE may use.
-	 *
-	 * @param format.pretty - Indent WHERE and SET clauses (default: true).
+	 * @param options.set   - Enable runtime SET values at call time.
+	 * @param options.where - Enable runtime WHERE merged AND with the static WHERE.
+	 *                        Pass a restriction spec to limit which columns are allowed.
+	 * @param executor      - When provided, the prepared function calls it and returns its result.
 	 */
-	prepare<const Opts extends UpdatePrepareOptions<AccEnv, T>>(
-		options? : Opts,
-		format?  : { pretty?: boolean }
-	) : (args? : UpdatePrepareArgs<Env, AccEnv, T, SK, Opts> & CTEArgs) => { query : string, args : any[] }
+	prepare<const Opts extends UpdatePrepareOptions<AccEnv, T>>(options?: Opts): (args?: UpdatePrepareArgs<Env, AccEnv, T, SK, Opts> & CTEArgs) => { query: string; args: any[] }
+	prepare<const Opts extends UpdatePrepareOptions<AccEnv, T>, Result>(options: Opts | undefined, executor: (query: string, args: any[]) => Result): (args?: UpdatePrepareArgs<Env, AccEnv, T, SK, Opts> & CTEArgs) => Result
+	prepare<const Opts extends UpdatePrepareOptions<AccEnv, T>, Result>(
+		options?  : Opts,
+		executor? : (query: string, args: any[]) => Result
+	): (args?: UpdatePrepareArgs<Env, AccEnv, T, SK, Opts> & CTEArgs) => { query: string; args: any[] } | Result
 	{
-		return (args? : any) => {
-			const castedArgs = args as any;
-			const pretty     = format?.pretty ?? true;
+		return (args? : UpdatePrepareArgs<Env, AccEnv, T, SK, Opts> & CTEArgs) => {
+			const castedArgs = args;
+			const pretty     = true;
 
 			// ── CTEs ─────────────────────────────────────────────────────────────
 			const cteParts  : string[] = [];
@@ -195,11 +236,14 @@ export class UpdateQuery<
 			const vp = new ValuesParser(pretty);
 			if(effectiveSet) vp.parse(effectiveSet, 1);
 
+			// ── IN subqueries ────────────────────────────────────────────────────
+			const { sql: inSQL, args: inArgsList, nextIdx: inNextIdx } =
+				buildInClauses(this.#in, vp.idx, pretty);
+
 			// ── WHERE (static) ───────────────────────────────────────────────────
-			// Initialize idx to vp.idx so runtime WHERE always follows SET parameters.
 			const whereParser = new WhereParser(this.#sk, pretty);
-			if(this.#where) whereParser.parse(this.#where, vp.idx);
-			else            whereParser.idx = vp.idx;
+			if(this.#where) whereParser.parse(this.#where, inNextIdx);
+			else            whereParser.idx = inNextIdx;
 
 			// ── WHERE (runtime) ──────────────────────────────────────────────────
 			let runtimeWhereSQL    = '';
@@ -211,7 +255,7 @@ export class UpdateQuery<
 				runtimeWhereValues = runtimeParser.values;
 			}
 
-			const whereSQL = mergeWHEREAsAND(pretty, whereParser.where, runtimeWhereSQL);
+			const whereSQL = mergeWHEREAsAND(pretty, inSQL, whereParser.where, runtimeWhereSQL);
 
 			// ── RETURNING ────────────────────────────────────────────────────────
 			const fp = new FieldParser(this.#sk);
@@ -232,10 +276,24 @@ export class UpdateQuery<
 				? `WITH ${cteParts.join(',\n')}\n${shiftedMainSQL}`
 				: shiftedMainSQL;
 
-			return {
+			const result = {
 				query : fullSQL,
-				args  : [...cteArgs, ...vp.values, ...whereParser.values, ...runtimeWhereValues],
+				args  : [...cteArgs, ...vp.values, ...inArgsList, ...whereParser.values, ...runtimeWhereValues],
 			};
+			return executor ? executor(result.query, result.args) : result;
 		};
+	}
+
+	/** Returns `{ query, args }` immediately. Shorthand for `.prepare()()`. */
+	build(): { query: string; args: any[] } {
+		return this.prepare()();
+	}
+
+	/**
+	 * Builds and immediately calls `executor(query, args)`, returning its result.
+	 * Shorthand for `.prepare(undefined, executor)()`.
+	 */
+	execute<Result>(executor: (query: string, args: any[]) => Result): Result {
+		return this.prepare(undefined as any, executor)();
 	}
 }

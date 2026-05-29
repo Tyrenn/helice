@@ -74,21 +74,21 @@ export class InsertQuery<
 	}
 
 	/**
-	 * Returns a prepared function that generates `{ query, args }`.
+	 * Returns a reusable function that generates `{ query, args }` on each call.
 	 *
-	 * Options:
-	 * - `values: true` → the prepared function accepts `{ values: row | row[] }` at call time.
-	 *
-	 * @param format.pretty - Indent multi-row VALUES across lines (default: true).
+	 * @param options.values - Enable runtime row(s) at call time instead of build time.
+	 * @param executor       - When provided, the prepared function calls it and returns its result.
 	 */
-	prepare<const Opts extends InsertPrepareOptions<Env[T]>>(
-		options? : Opts,
-		format?  : { pretty?: boolean }
-	) : (args? : InsertPrepareArgs<Env[T], Opts>) => { query : string, args : any[] }
+	prepare<const Opts extends InsertPrepareOptions<Env[T]>>(options?: Opts): (args?: InsertPrepareArgs<Env[T], Opts>) => { query: string; args: any[] }
+	prepare<const Opts extends InsertPrepareOptions<Env[T]>, Result>(options: Opts | undefined, executor: (query: string, args: any[]) => Result): (args?: InsertPrepareArgs<Env[T], Opts>) => Result
+	prepare<const Opts extends InsertPrepareOptions<Env[T]>, Result>(
+		options?  : Opts,
+		executor? : (query: string, args: any[]) => Result
+	): (args?: InsertPrepareArgs<Env[T], Opts>) => { query: string; args: any[] } | Result
 	{
 		return (args? : any) => {
 			const castedArgs = args as any;
-			const pretty     = format?.pretty ?? true;
+			const pretty     = true;
 
 			// ── VALUES ───────────────────────────────────────────────────────────
 			const effectiveValues = (options?.values && castedArgs?.values)
@@ -110,13 +110,24 @@ export class InsertQuery<
 				fp.select ? `RETURNING ${fp.select}` : '',
 			];
 
-			return {
+			const result = {
 				query : lines.filter(l => l.trim()).join('\n'),
 				args  : vp.values,
 			};
+			return executor ? executor(result.query, result.args) : result;
 		};
 	}
+
+	/** Returns `{ query, args }` immediately. Shorthand for `.prepare()()`. */
+	build(): { query: string; args: any[] } {
+		return this.prepare()();
+	}
+
+	/**
+	 * Builds and immediately calls `executor(query, args)`, returning its result.
+	 * Shorthand for `.prepare(undefined, executor)()`.
+	 */
+	execute<Result>(executor: (query: string, args: any[]) => Result): Result {
+		return this.prepare(undefined as any, executor)();
+	}
 }
-
-
-// TODO Fix error + add possibility on prepare to activate soft duplicate ?

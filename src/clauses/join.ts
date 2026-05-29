@@ -32,7 +32,7 @@ import { FlatEnv, KeysOfArray, KeysOfNonArray, KeysOfNumber, KeysOfNumberArray, 
 	Join<Env, AEnv>
 	{
 		"table2" : "b2 # table1.b1",					// Default join is left join
-		"table2@alias1" : "b2 i# table1.b1",		// Can do inner (i), left (l), right (r) and full (f) joins
+		"i#table2@alias1" : "b2 = table1.b1",		// prefix: i# inner, l# left, r# right, f# full
 		"table2@alias2" : "b2 # table1.b1"			// Can alias the joined table
 		"table1@alias3" : "a1 # table1.a1"			// MUST alias already available table otherwise name clash
 		"table2@alias4" : {								// More complex joins are possible with join over multiple columns, similar to WHERE API

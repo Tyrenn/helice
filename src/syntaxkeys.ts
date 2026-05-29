@@ -80,6 +80,24 @@ export type SyntaxKeys = {
 	arrayStrictSuperiorR : string;
 	arrayStrictInferiorL : string;
 	arrayStrictInferiorR : string;
+
+	// BETWEEN
+	betweenL    : string;
+	betweenR    : string;
+	notBetweenL : string;
+	notBetweenR : string;
+
+	// JSONB
+	jsonbContainsL    : string; // @>
+	jsonbContainsR    : string;
+	jsonbContainedByL : string; // <@
+	jsonbContainedByR : string;
+	jsonbHasKeyL      : string; // ?
+	jsonbHasKeyR      : string;
+	jsonbHasAnyKeyL   : string; // ?|
+	jsonbHasAnyKeyR   : string;
+	jsonbHasAllKeysL  : string; // ?&
+	jsonbHasAllKeysR  : string;
 };
 
 
@@ -177,6 +195,24 @@ export type SyntaxKeysConstant = {
 	arrayStrictSuperiorR : string | string[];
 	arrayStrictInferiorL : string | string[];
 	arrayStrictInferiorR : string | string[];
+
+	// BETWEEN
+	betweenL    : string | string[];
+	betweenR    : string | string[];
+	notBetweenL : string | string[];
+	notBetweenR : string | string[];
+
+	// JSONB
+	jsonbContainsL    : string | string[];
+	jsonbContainsR    : string | string[];
+	jsonbContainedByL : string | string[];
+	jsonbContainedByR : string | string[];
+	jsonbHasKeyL      : string | string[];
+	jsonbHasKeyR      : string | string[];
+	jsonbHasAnyKeyL   : string | string[];
+	jsonbHasAnyKeyR   : string | string[];
+	jsonbHasAllKeysL  : string | string[];
+	jsonbHasAllKeysR  : string | string[];
 }
 
 
@@ -189,10 +225,10 @@ export type ToSyntaxKey<SKC extends any> = {
 
 export const DefaultSyntaxKeys = {
 	join : "#",
-	innerJoin : " i# ",
-	fullJoin : " f# ",
-	leftJoin : " l# ",
-	rightJoin : " r# ",
+	innerJoin : "i#",
+	fullJoin : "f#",
+	leftJoin : "l#",
+	rightJoin : "r#",
 
 	alias : "@",
 	andGroup : "&&:",
@@ -256,6 +292,22 @@ export const DefaultSyntaxKeys = {
 	arrayStrictSuperiorR: '',
 	arrayStrictInferiorL: '[<]:',
 	arrayStrictInferiorR: '',
+
+	betweenL    : 'between:',
+	betweenR    : '',
+	notBetweenL : '!between:',
+	notBetweenR : '',
+
+	jsonbContainsL    : '@>:',
+	jsonbContainsR    : '',
+	jsonbContainedByL : '<@:',
+	jsonbContainedByR : '',
+	jsonbHasKeyL      : '?:',
+	jsonbHasKeyR      : '',
+	jsonbHasAnyKeyL   : '?|:',
+	jsonbHasAnyKeyR   : '',
+	jsonbHasAllKeysL  : '?&:',
+	jsonbHasAllKeysR  : '',
 } as const satisfies SyntaxKeysConstant;
 
 export type DefaultSyntaxKeys = ToSyntaxKey<typeof DefaultSyntaxKeys> & {};
@@ -264,10 +316,10 @@ export type DefaultSyntaxKeys = ToSyntaxKey<typeof DefaultSyntaxKeys> & {};
 
 export const VerboseSyntaxKeys = {
 	join : "JOIN",
-	innerJoin : " INNER JOIN ",
-	fullJoin : " FULL JOIN ",
-	leftJoin : " LEFT JOIN ",
-	rightJoin : " RIGHT JOIN ",
+	innerJoin : "INNER JOIN ",
+	fullJoin : "FULL JOIN ",
+	leftJoin : "LEFT JOIN ",
+	rightJoin : "RIGHT JOIN ",
 
 	alias : " AS ",
 	
@@ -332,6 +384,22 @@ export const VerboseSyntaxKeys = {
 	arrayStrictSuperiorR: '} >',
 	arrayStrictInferiorL: '{',
 	arrayStrictInferiorR: '} <',
+
+	betweenL    : '',
+	betweenR    : ' BETWEEN',
+	notBetweenL : '',
+	notBetweenR : ' NOT BETWEEN',
+
+	jsonbContainsL    : '',
+	jsonbContainsR    : ' @>',
+	jsonbContainedByL : '',
+	jsonbContainedByR : ' <@',
+	jsonbHasKeyL      : '',
+	jsonbHasKeyR      : ' ?',
+	jsonbHasAnyKeyL   : '',
+	jsonbHasAnyKeyR   : ' ?|',
+	jsonbHasAllKeysL  : '',
+	jsonbHasAllKeysR  : ' ?&',
 } as const satisfies SyntaxKeysConstant;
 
 export type VerboseSyntaxKeys = ToSyntaxKey<typeof VerboseSyntaxKeys> & {};

@@ -2,8 +2,11 @@
 
 **A typesafe, fluent PostgreSQL query builder for TypeScript.**
 
-*"Hélice" (pronounced *ay-lees*) is French for mecanical propeller which looks like a `q` and a `b` from `query builder` on top of each other... We thought that was fun enough to stick with.*
+*"Hélice" (pronounced *ay-lees*) is French for mechanical propeller — which looks surprisingly like a `q` and a `b` from `query builder` stacked on top of each other. We thought that was fun enough to stick with.*
 
+Helice has **zero runtime dependencies**. TypeScript is a dev dependency.
+
+---
 
 ## Install
 
@@ -15,8 +18,7 @@ pnpm add helice
 yarn add helice
 ```
 
-Helice has **zero runtime dependencies**. TypeScript is a dev dependency.
-
+---
 
 ## Quick start
 
@@ -41,187 +43,141 @@ const { query, args } = db.select('post')
 // args  → [true]
 ```
 
-Pass `query` and `args` directly to your PostgreSQL client (`pg`, `postgres`, `pgx`, whatever you use).
+Pass `query` and `args` directly to your PostgreSQL client (`pg`, `postgres`, whatever you use). The generated query follows PostgresSQL syntax.
 
+---
 
 ## Concepts
 
-### The `Helice` class
+### The Environment
 
-`Helice<Environment>` is the entry point. `Environment` is your database schema: an object whose keys are table names and whose values are the corresponding row types.
+The first thing you give Helice is your database schema — just TypeScript types, no schema file, no codegen, no decorators.
+
+An `Environment` is an object whose keys are table names and whose values describe the shape of a row in that table:
 
 ```typescript
+type User    = { id: number; name: string; email: string; active: boolean };
+type Post    = { id: number; author_id: number; title: string; published: boolean; views: number };
+type Comment = { id: number; post_id: number; body: string };
+
+type MyDB = { user: User; post: Post; comment: Comment };
+
 const db = new Helice<MyDB>();
 ```
 
-From there, every query method returns a fluent builder typed against `Environment`.
+That's it. From this point, every builder method is fully typed against `MyDB` — table names, column names, their types, valid comparisons — TypeScript will catch anything that doesn't exist or doesn't match.
 
-### SELECT
+---
+
+### SyntaxKeys
+
+SQL has a vocabulary. Helice keeps the structure of SQL clauses intact, but lets you choose the exact tokens that represent each operator or keyword.
+
+A **SyntaxKey** defines the "Left" and "Right" side of each operator — tokens that wrap the column name. This covers WHERE operators, join type keywords, the alias separator, array operators, and more.
+
+Two presets are included out of the box:
+
+**`DefaultSyntaxKeys`** — operators on the **left** (compact prefix syntax):
 
 ```typescript
-// All columns
-db.select('user').prepare()()
-
-// Specific columns
-db.select('user').field(['id', 'name']).prepare()()
-
-// With alias  (@ is the default alias separator)
-db.select('post').field('id@postId').prepare()()
-
-// Object form  { alias: sourceColumn }
-db.select('post').field({ postId: 'id', postTitle: 'title' }).prepare()()
-
-// Static WHERE + LIMIT
-db.select('post')
-  .where({ published: true, '>=:views': 1000 })
-  .limit(10)
-  .prepare()()
+.where({ '>=:views': 500, '~~:title': '%hello%' })
+.field('id@postId')                 // @ as alias separator
+.join({ 'i#user': '...' })          // i# for INNER JOIN
 ```
 
-#### Joins
-
-After `.join()`, bare column names are no longer valid — you must use `table.column` notation everywhere (field, where).
+**`VerboseSyntaxKeys`** — operators on the **right** (more SQL-like suffix syntax):
 
 ```typescript
-db.select('post')
-  .join({ user: 'id = post.author_id' })       // LEFT JOIN by default
-  .join({ ' i# user': 'id = post.author_id' }) // INNER JOIN
-  .field({ postId: 'post.id', author: 'user.name' })
-  .where({ 'post.published': true })
-  .prepare()()
+.where({ 'views >=': 500, 'title ~~': '%hello%' })
+.field('id AS postId')
+.join({ 'INNER JOIN user': '...' })
 ```
 
-#### CTEs (WITH clauses)
+To use `VerboseSyntaxKeys`, pass it as both a generic and a constructor argument:
 
 ```typescript
-const activeUsers = db.select('user').field(['id', 'name']).where({ active: true });
+import { Helice, VerboseSyntaxKeys } from 'helice';
 
-db.select('post')
-  .with('active_user', activeUsers)
-  .join({ active_user: 'id = post.author_id' })
-  .field({ title: 'post.title', author: 'active_user.name' })
-  .prepare()()
+const db = new Helice<MyDB, VerboseSyntaxKeys>(VerboseSyntaxKeys);
+```
+
+You can also write your own by creating an object that satisfies `SyntaxKeysConstant` and passing `ToSyntaxKey<typeof mySK>` as the generic. Every token Helice uses in types and parsers will follow your custom vocabulary end-to-end.
+
+---
+
+### Clauses
+
+#### FIELD
+
+`.field()` controls which columns appear in `SELECT`. Three forms are accepted:
+
+**String** — a single column, with optional alias:
+```typescript
+.field('*')                    // all columns
+.field('id')                   // one bare column (single-table query)
+.field('post.id')              // qualified column (joined query)
+.field('id@postId')            // aliased — default SK uses @
+```
+
+**Array** — multiple columns:
+```typescript
+.field(['id', 'title', 'author_id@authorId'])
+```
+
+**Object** — the most powerful form. Keys are output aliases, values are expressions:
+```typescript
+.field({
+  postId   : 'post.id',                              // column reference
+  count    : 42,                                     // number literal
+  active   : true,                                   // boolean literal
+  label    : "'Hello'",                              // string literal (single-quoted in SQL)
+  comments : {                                       // aggregation → adds GROUP BY
+    fn    : 'json_agg',
+    group : 'post.id',
+    value : { id: 'comment.id', body: 'comment.body' }
+  },
+  raw      : { fn: 'raw', value: 'COALESCE(title, \'\')' }
+})
 ```
 
 ---
 
-### INSERT
+#### WHERE
 
-```typescript
-// Single row
-db.insert('user')
-  .values({ name: 'Alice', email: 'alice@example.com', active: true })
-  .prepare()()
+`.where()` accepts an object where the key encodes both the column and the comparison operator. The default syntax (prefix) places the operator on the left:
 
-// Multiple rows  (column list is derived from the first row)
-db.insert('post')
-  .values([
-    { author_id: 1, title: 'Hello', published: false, views: 0 },
-    { author_id: 1, title: 'World', published: true,  views: 42 },
-  ])
-  .prepare()()
-
-// With RETURNING
-db.insert('user')
-  .values({ name: 'Bob', email: 'bob@example.com', active: true })
-  .returning(['id', 'name'])
-  .prepare()()
-```
-
----
-
-### UPDATE
-
-```typescript
-// Static SET + WHERE
-db.update('user')
-  .set({ active: false })
-  .where({ id: 5 })
-  .prepare()()
-
-// Multi-table (PostgreSQL UPDATE … FROM)
-import { col } from 'helice';
-
-db.update('post')
-  .using(['user'])
-  .set({ published: false })
-  .where({ 'post.author_id': col('user.id'), 'user.active': false })
-  .prepare()()
-```
-
----
-
-### DELETE
-
-```typescript
-// Static WHERE
-db.delete('user').where({ id: 99 }).prepare()()
-
-// Multi-table (PostgreSQL DELETE … USING)
-db.delete('post')
-  .using(['user'])
-  .where({ 'post.author_id': col('user.id'), 'user.active': false })
-  .prepare()()
-```
-
----
-
-### `prepare()` — static vs runtime
-
-`.prepare()` returns a **reusable function**. You can bake values in at build time (static), or leave them open to be passed at call time (runtime). Both can coexist and are merged automatically.
-
-```typescript
-// Static: everything baked in — just call it
-const getPublished = db.select('post')
-  .where({ published: true })
-  .prepare();
-
-getPublished() // same result every time
-
-// Runtime WHERE: pass a where clause when you call the function
-const findPosts = db.select('post')
-  .where({ published: true })          // static part
-  .prepare({ where: true });           // runtime part enabled
-
-findPosts({ where: { '>=:views': 500 }, limit: 10 })
-// WHERE clause: published = $1 AND views >= $2
-
-// You can also restrict which columns the runtime WHERE is allowed to use:
-const updateUser = db.update('user')
-  .prepare({ set: true, where: { user: ['id'] } });  // runtime WHERE limited to user.id
-
-updateUser({ set: { name: 'Dave' }, where: { id: 10 } })
-```
-
----
-
-### WHERE syntax
-
-Operators are expressed as **key prefixes** (default syntax) or suffixes (verbose syntax):
-
-| Key | SQL |
-|-----|-----|
+| Key | SQL produced |
+|-----|-------------|
 | `column` | `column = $n` |
+| `=:column` | `column = $n` |
+| `<>:column` | `column <> $n` |
 | `>=:column` | `column >= $n` |
+| `<=:column` | `column <= $n` |
+| `>:column` | `column > $n` |
+| `<:column` | `column < $n` |
 | `~~:column` | `column ~~ $n` (LIKE) |
 | `~~*:column` | `column ~~* $n` (ILIKE) |
-| `[=]:column` | `$n = ANY(column)` (array contains) |
+| `!~~:column` | `column !~~ $n` (NOT LIKE) |
+| `[=]:column` | `$n = ANY(column)` |
+| `[<>]:column` | `$n <> ALL(column)` |
+| `[~~]:column` | `array_to_string(column,' ') ~~ $n` |
 | `&&:label` | OR group — value is an array of AND conditions |
 
+Passing `null` as a value produces `IS NULL` / `IS NOT NULL`. Passing an array produces `= ANY(...)`.
+
+**OR groups** with `&&:`:
 ```typescript
 .where({
-  published  : true,
-  '>=:views' : 100,
-  '&&:any'   : [
+  published : true,
+  '&&:any'  : [
     { '~~:title': '%TypeScript%' },
     { '~~:title': '%Postgres%'   },
   ]
 })
-// WHERE (published = $1 AND views >= $2 AND (title ~~ $3 OR title ~~ $4))
+// WHERE (published = $1 AND (title ~~ $2 OR title ~~ $3))
 ```
 
-Column-to-column comparisons use the `col()` helper:
-
+**Column-to-column comparisons** with `col()`:
 ```typescript
 import { col } from 'helice';
 .where({ 'post.author_id': col('user.id') })
@@ -230,33 +186,108 @@ import { col } from 'helice';
 
 ---
 
-### SyntaxKeys
+#### ORDER BY
 
-The default syntax puts operators on the **left** of column names. If you prefer them on the right (more SQL-like), use `VerboseSyntaxKeys`:
+`.orderBy()` is available on SELECT. Three forms:
 
 ```typescript
-import { Helice, VerboseSyntaxKeys } from 'helice';
+.orderBy('views')                            // single column (default ASC)
+.orderBy(['published', 'views'])             // multiple columns (all ASC)
+.orderBy({ views: 'DESC', title: 'ASC' })   // with explicit direction
+.orderBy({ views: 'DESC', title: '' })      // '' = no direction keyword
+```
 
-const db = new Helice<MyDB, VerboseSyntaxKeys>(VerboseSyntaxKeys);
+After a join, use fully-qualified `table.col` notation.
 
-db.select('post').where({ 'published =': true, 'views >=': 100 }).prepare()()
+---
+
+#### RETURNING
+
+`.returning()` appends a `RETURNING` clause to INSERT, UPDATE, and DELETE. Accepts the same string, array, and object forms as `.field()`:
+
+```typescript
+.returning('*')
+.returning(['id', 'name'])
+.returning({ userId: 'id', userName: 'name' })
 ```
 
 ---
 
-### More examples
+### Queries
 
-The [`tests/`](./tests/) folder contains annotated example files for every query type — a good place to get a feel for the full API before diving into your own schema.
+Here's a quick overview of which clauses are available per query type, and which options can be made runtime via `.prepare()`:
 
-- [`tests/select.ts`](./tests/select.ts) — SELECT, joins, CTEs, aggregations, runtime options
-- [`tests/insert.ts`](./tests/insert.ts) — INSERT single/multi-row, RETURNING, runtime values
-- [`tests/update.ts`](./tests/update.ts) — UPDATE, FROM clause, CTEs, runtime SET/WHERE
-- [`tests/delete.ts`](./tests/delete.ts) — DELETE, USING clause, CTEs, runtime WHERE
+**Available clauses:**
 
-You can run any of them directly to see the generated SQL:
+| Clause | SELECT | INSERT | UPDATE | DELETE |
+|--------|:------:|:------:|:------:|:------:|
+| `.field()` / `.returning()` | `.field()` | `.returning()` | `.returning()` | `.returning()` |
+| `.values()` / `.set()` | | `.values()` | `.set()` | |
+| `.join()` / `.using()` | `.join()` | | `.using()` (FROM) | `.using()` (USING) |
+| `.with()` (CTE) | ✓ | | ✓ | ✓ |
+| `.where()` / `.in()` / `.notIn()` | ✓ | | ✓ | ✓ |
+| `.orderBy()` / `.limit()` | ✓ | | | |
 
-```bash
-pnpm test:file tests/select.ts
+**Runtime `.prepare()` options:**
+
+| Option | SELECT | INSERT | UPDATE | DELETE |
+|--------|:------:|:------:|:------:|:------:|
+| `where` | ✓ | | ✓ | ✓ |
+| `field` | ✓ | | | |
+| `orderBy` / `limit` | ✓ | | | |
+| `set` / `values` | | `values` | `set` | |
+
+For in-depth documentation and examples for each query type:
+
+- [SELECT](./documentation/select.md) — field, join, CTE, where, orderBy, limit, prepare options
+- [INSERT](./documentation/insert.md) — values, returning, runtime values
+- [UPDATE](./documentation/update.md) — set, using, CTE, where, returning, prepare options
+- [DELETE](./documentation/delete.md) — using, CTE, where, returning, prepare options
+
+---
+
+### `build()` / `execute()`
+
+Two one-shot shortcuts available on every query type:
+
+```typescript
+// build() — returns { query, args } immediately, no function wrapper
+const { query, args } = db.select('post').where({ published: true }).build();
+
+// execute(executor) — builds and calls in one step, return type inferred from executor
+const rows = await db.select('user').where({ active: true })
+  .execute((q, a) => pgClient.query<User[]>(q, a));
+```
+
+Both use static clause values only. When you need runtime args, use `.prepare()` instead.
+
+---
+
+### `prepare()` — static vs runtime
+
+`.prepare()` returns a **reusable function**. Values can be baked in at build time (static), left open at call time (runtime), or both — static and runtime parts are merged automatically.
+
+```typescript
+// Everything static — call with no arguments, always returns the same SQL
+const getPublished = db.select('post')
+  .where({ published: true })
+  .prepare();
+
+getPublished()
+
+// Runtime WHERE — enable it in prepare(), supply it at call time
+const findPosts = db.select('post')
+  .where({ published: true })       // static part, always applied
+  .prepare({ where: true });        // AND runtime WHERE enabled
+
+findPosts({ where: { '>=:views': 500 }, limit: 10 })
+// WHERE (published = $1 AND views >= $2) LIMIT 10
+
+// Restrict which columns the runtime WHERE may use
+const updateUser = db.update('user')
+  .prepare({ set: true, where: { user: ['id'] } });
+
+updateUser({ set: { name: 'Dave' }, where: { id: 10 } })
 ```
 
 ---
@@ -275,15 +306,21 @@ pnpm test         # run the test suite
 pnpm test:watch   # re-run on file changes
 ```
 
+The test files in [`tests/`](./tests/) also double as runnable examples. Pass any of them to `tsx` to see the generated SQL printed to stdout:
+
+```bash
+pnpm test:file tests/select.test.ts
+```
+
 ### Before opening a PR
 
-Helice uses [Changesets](https://github.com/changesets/changesets) to manage versioning and changelogs. Before submitting a PR that contains a user-facing change, please add a changeset describing what you did:
+Helice uses [Changesets](https://github.com/changesets/changesets) to manage versioning and changelogs. Before submitting a PR with a user-facing change, run:
 
 ```bash
 pnpm changeset
 ```
 
-You'll be asked to choose a bump type (`patch` / `minor` / `major`) and write a short description. This creates a small file in `.changeset/` — just commit it alongside your changes. That's it!
+You'll be asked to choose a bump type (`patch` / `minor` / `major`) and write a short description. This creates a small file in `.changeset/` — commit it alongside your changes, and that's it.
 
 > Not sure what bump type to pick? Roughly: `patch` for bug fixes, `minor` for new features that don't break existing code, `major` for anything that changes the existing API.
 

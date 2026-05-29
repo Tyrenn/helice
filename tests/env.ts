@@ -16,6 +16,7 @@ export type Post = {
 	published : boolean;
 	views     : number;
 	tags      : string[];
+	meta      : Record<string, any>;
 };
 
 export type Comment = {
@@ -38,8 +39,8 @@ export type BlogEnv = {
 	active_user : ActiveUser;
 };
 
-export const db        = new Helice<BlogEnv>();
-export const verboseDb = new Helice<BlogEnv, VerboseSyntaxKeys>(VerboseSyntaxKeys);
+export const helice        = new Helice<BlogEnv>();
+export const verboseHelice = new Helice<BlogEnv, VerboseSyntaxKeys>(VerboseSyntaxKeys);
 
 export type Case = {
 	label    : string;

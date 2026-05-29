@@ -1,5 +1,6 @@
 import { Field, FieldHasDuplicateAliases, FieldParser, TableFromField } from "./clauses/field.js";
-import { shiftParams } from "./clauses/common.js";
+import { shiftParams, FlatEnv, FlatEnvKeys } from "./clauses/common.js";
+import { In, buildInClauses } from "./clauses/in.js";
 import { mergeWHEREAsAND, Where, WhereParser, EnvFromWhereRestrictionSpec, WhereRestrictionSpec } from "./clauses/where.js";
 import { DefaultSyntaxKeys, SyntaxKeys, SyntaxKeysConstant } from "./syntaxkeys.js";
 import { SelectPrepareArgs, SelectPrepareOptions, SelectQuery } from "./select.js";
@@ -50,16 +51,18 @@ export class DeleteQuery<
 	/** Phantom: exposes ReturnType for external `typeof query.inferTableType` inference. */
 	declare readonly inferTableType : ReturnType;
 
-	#table    : string;
-	#sk       : SyntaxKeysConstant;
-	#where    : Obj | undefined;
-	#using    : string[] = [];
-	#returning: Field<Pick<Env, T>, T, SK> | undefined;
-	#ctes     : Array<{ alias: string, preparedFn: (args?: any) => { query: string, args: any[] } }> = [];
+	#table     : string;
+	#sk        : SyntaxKeysConstant;
+	#where     : Obj | undefined;
+	#using     : string[] = [];
+	#returning : Field<Pick<Env, T>, T, SK> | undefined;
+	#in : In[] = [];
+	#ctes      : Array<{ alias: string, preparedFn: (args?: any) => { query: string, args: any[] } }> = [];
 
-	constructor(table : T, sk : SyntaxKeysConstant = DefaultSyntaxKeys) {
+	constructor(table : T, sk : SyntaxKeysConstant = DefaultSyntaxKeys, preCTEs?: Array<{ alias: string, preparedFn: (args?: any) => { query: string, args: any[] } }>) {
 		this.#table = table;
 		this.#sk    = sk;
+		if(preCTEs?.length) this.#ctes = [...preCTEs];
 	}
 
 	/**
@@ -87,9 +90,9 @@ export class DeleteQuery<
 			DeleteQuery<
 				Env & { [K in Alias]: CTETable },
 				AccEnv, T, SK, ReturnType,
-				CTEArgs & ([keyof SelectPrepareArgs<CTEAccEnv, CTEFieldScope, CTESK, CTEOpts>] extends [never]
+				CTEArgs & ([keyof SelectPrepareArgs<CTEAccEnv, CTEFieldScope, CTESK, CTEOpts, CTEFrom>] extends [never]
 					? {}
-					: { [K in Alias]?: SelectPrepareArgs<CTEAccEnv, CTEFieldScope, CTESK, CTEOpts> })
+					: { [K in Alias]?: SelectPrepareArgs<CTEAccEnv, CTEFieldScope, CTESK, CTEOpts, CTEFrom> })
 			>,
 			typeof this, never
 		>;
@@ -122,6 +125,44 @@ export class DeleteQuery<
 		>;
 	}
 
+	in<Col extends FlatEnvKeys<AccEnv, T> & string>(
+		column   : Col,
+		subquery : Pick<SelectQuery<any, any, Record<string, FlatEnv<AccEnv, T>[Col & keyof FlatEnv<AccEnv, T>]>, any, any>, 'prepare'>
+	) {
+		this.#in.push({ column, not: false, fn: (subquery as any).prepare() });
+		return (this as unknown) as MethodResultType<
+			DeleteQuery<Env, AccEnv, T, SK, ReturnType, CTEArgs>,
+			typeof this, "using" | "with"
+		>;
+	}
+
+	notIn<Col extends FlatEnvKeys<AccEnv, T> & string>(
+		column   : Col,
+		subquery : Pick<SelectQuery<any, any, Record<string, FlatEnv<AccEnv, T>[Col & keyof FlatEnv<AccEnv, T>]>, any, any>, 'prepare'>
+	) {
+		this.#in.push({ column, not: true, fn: (subquery as any).prepare() });
+		return (this as unknown) as MethodResultType<
+			DeleteQuery<Env, AccEnv, T, SK, ReturnType, CTEArgs>,
+			typeof this, "using" | "with"
+		>;
+	}
+
+	exists(subquery : Pick<SelectQuery<any, any, any, any, any>, 'prepare'>) {
+		this.#in.push({ not: false, fn: (subquery as any).prepare() });
+		return (this as unknown) as MethodResultType<
+			DeleteQuery<Env, AccEnv, T, SK, ReturnType, CTEArgs>,
+			typeof this, "using" | "with"
+		>;
+	}
+
+	notExists(subquery : Pick<SelectQuery<any, any, any, any, any>, 'prepare'>) {
+		this.#in.push({ not: true, fn: (subquery as any).prepare() });
+		return (this as unknown) as MethodResultType<
+			DeleteQuery<Env, AccEnv, T, SK, ReturnType, CTEArgs>,
+			typeof this, "using" | "with"
+		>;
+	}
+
 	/**
 	 * Adds a RETURNING clause. Accepts the same syntax as SELECT's `.field()`.
 	 */
@@ -136,23 +177,22 @@ export class DeleteQuery<
 	}
 
 	/**
-	 * Returns a prepared function that generates `{ query, args }`.
+	 * Returns a reusable function that generates `{ query, args }` on each call.
 	 *
-	 * Options:
-	 * - `where: true`   → the prepared function accepts `{ where: {...} }` at call time;
-	 *                      merged AND with the static WHERE if one was set.
-	 * - `where: spec`   → same as `true` but restricts which columns the runtime WHERE may use.
-	 *
-	 * @param format.pretty - Indent WHERE clause (default: true).
+	 * @param options.where - Enable runtime WHERE merged AND with the static WHERE.
+	 *                        Pass a restriction spec to limit which columns are allowed.
+	 * @param executor      - When provided, the prepared function calls it and returns its result.
 	 */
-	prepare<const Opts extends DeletePrepareOptions<AccEnv>>(
-		options? : Opts,
-		format?  : { pretty?: boolean }
-	) : (args? : DeletePrepareArgs<Env, AccEnv, T, SK, Opts> & CTEArgs) => { query : string, args : any[] }
+	prepare<const Opts extends DeletePrepareOptions<AccEnv>>(options?: Opts): (args?: DeletePrepareArgs<Env, AccEnv, T, SK, Opts> & CTEArgs) => { query: string; args: any[] }
+	prepare<const Opts extends DeletePrepareOptions<AccEnv>, Result>(options: Opts | undefined, executor: (query: string, args: any[]) => Result): (args?: DeletePrepareArgs<Env, AccEnv, T, SK, Opts> & CTEArgs) => Result
+	prepare<const Opts extends DeletePrepareOptions<AccEnv>, Result>(
+		options?  : Opts,
+		executor? : (query: string, args: any[]) => Result
+	): (args?: DeletePrepareArgs<Env, AccEnv, T, SK, Opts> & CTEArgs) => { query: string; args: any[] } | Result
 	{
-		return (args? : any) => {
-			const castedArgs = args as any;
-			const pretty     = format?.pretty ?? true;
+		return (args? : DeletePrepareArgs<Env, AccEnv, T, SK, Opts> & CTEArgs) => {
+			const castedArgs = args;
+			const pretty     = true;
 
 			// ── CTEs ─────────────────────────────────────────────────────────────
 			const cteParts  : string[] = [];
@@ -167,10 +207,14 @@ export class DeleteQuery<
 				paramOffset += result.args.length;
 			}
 
+			// ── IN subqueries ────────────────────────────────────────────────────
+			const { sql: inSQL, args: inArgsList, nextIdx: inNextIdx } =
+				buildInClauses(this.#in, 1, pretty);
+
 			// ── WHERE (static) ───────────────────────────────────────────────────
 			const whereParser = new WhereParser(this.#sk, pretty);
-			if(this.#where) whereParser.parse(this.#where, 1);
-			else            whereParser.idx = 1;
+			if(this.#where) whereParser.parse(this.#where, inNextIdx);
+			else            whereParser.idx = inNextIdx;
 
 			// ── WHERE (runtime) ──────────────────────────────────────────────────
 			let runtimeWhereSQL    = '';
@@ -182,7 +226,7 @@ export class DeleteQuery<
 				runtimeWhereValues = runtimeParser.values;
 			}
 
-			const whereSQL = mergeWHEREAsAND(pretty, whereParser.where, runtimeWhereSQL);
+			const whereSQL = mergeWHEREAsAND(pretty, inSQL, whereParser.where, runtimeWhereSQL);
 
 			// ── RETURNING ────────────────────────────────────────────────────────
 			const fp = new FieldParser(this.#sk);
@@ -202,10 +246,25 @@ export class DeleteQuery<
 				? `WITH ${cteParts.join(',\n')}\n${shiftedMainSQL}`
 				: shiftedMainSQL;
 
-			return {
+			const result = {
 				query : fullSQL,
-				args  : [...cteArgs, ...whereParser.values, ...runtimeWhereValues],
+				args  : [...cteArgs, ...inArgsList, ...whereParser.values, ...runtimeWhereValues],
 			};
+
+			return executor ? executor(result.query, result.args) : result;
 		};
+	}
+
+	/** Returns `{ query, args }` immediately. Shorthand for `.prepare()()`. */
+	build(): { query: string; args: any[] } {
+		return this.prepare()();
+	}
+
+	/**
+	 * Builds and immediately calls `executor(query, args)`, returning its result.
+	 * Shorthand for `.prepare(undefined, executor)()`.
+	 */
+	execute<Result>(executor: (query: string, args: any[]) => Result): Result {
+		return this.prepare(undefined as any, executor)();
 	}
 }

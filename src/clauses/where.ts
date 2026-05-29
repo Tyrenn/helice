@@ -1,7 +1,7 @@
 
 import { Table, Environment, Obj, Column, col} from '../types.js';
 import { DefaultSyntaxKeys, SKArrayCompareOPL, SKArrayCompareOPR, SKArrayEqualityOPL, SKArrayEqualityOPR, SKArrayLikeOPL, SKArrayLikeOPR, SKCompareOPL, SKCompareOPR, SKEqualityOPL, SKEqualityOPR, SKLikeOPL, SKLikeOPR, SyntaxKeys, SyntaxKeysConstant, VerboseSyntaxKeys } from '../syntaxkeys.js';
-import { MaybeArray, FlatEnv, KeysNotOfType, KeysOfArray, KeysOfNonArray, KeysOfNumber, KeysOfNumberArray, KeysOfString, KeysOfStringArray, KeysOfType, WrapKeyArrayedValue, WrapKeyNoArrayValue } from './common.js';
+import { MaybeArray, FlatEnv, KeysNotOfType, KeysOfArray, KeysOfNonArray, KeysOfNumber, KeysOfNumberArray, KeysOfObject, KeysOfString, KeysOfStringArray, KeysOfType, WrapKeyArrayedValue, WrapKeyNoArrayValue } from './common.js';
 
 /****************
 		WHERE
@@ -63,7 +63,7 @@ Will translate in :
    ========================================================================= */
 
 
-	/** --------- TS QUERY Properties ------------- */
+	/** --------- TSQuery Properties ------------- */
 
 	export type TSQuery = {
 		value : string,
@@ -72,40 +72,49 @@ Will translate in :
 		language : string;
 	}
 
-	type TSQueryProp<
-		T,
-		SK extends SyntaxKeys
-	> = {
-		[K in KeysOfStringArray<T> & string as `${SK["tsqueryL"]}${K}${SK["tsqueryR"]}`]?: TSQuery;
-	}
+	type TSQueryProp<T, SK extends SyntaxKeys> = { [K in KeysOfStringArray<T> & string as `${SK["tsqueryL"]}${K}${SK["tsqueryR"]}`]?: TSQuery; }
+
+
+	/** --------- Between Properties ------------- */
+
+	type BetweenProp<T, SK extends SyntaxKeys> = 
+		{ [k in (KeysOfNumber<T> | KeysOfString<T>) & string as `${SK["betweenL"]}${k}${SK["betweenR"]}`]?    : [T[k], T[k]] }		// BETWEEN
+		& { [k in (KeysOfNumber<T> | KeysOfString<T>) & string as `${SK["notBetweenL"]}${k}${SK["notBetweenR"]}`]? : [T[k], T[k]] }	// NOT BETWEEN		
+
+
+	/** --------- JSON B Properties ------------- */
+
+	type JSONBProp<T, SK extends SyntaxKeys> = 
+ 			{ [k in KeysOfObject<T> & string as `${SK["jsonbContainsL"]}${k}${SK["jsonbContainsR"]}`]?       : T[k] }		// JSONB @>
+		& 	{ [k in KeysOfObject<T> & string as `${SK["jsonbContainedByL"]}${k}${SK["jsonbContainedByR"]}`]? : T[k] }		// JSONB <@
+		& 	{ [k in KeysOfObject<T> & string as `${SK["jsonbHasKeyL"]}${k}${SK["jsonbHasKeyR"]}`]?           : string }		// JSONB ?
+		& 	{ [k in KeysOfObject<T> & string as `${SK["jsonbHasAnyKeyL"]}${k}${SK["jsonbHasAnyKeyR"]}`]?     : string[] }	// JSONB ?|
+		& 	{ [k in KeysOfObject<T> & string as `${SK["jsonbHasAllKeysL"]}${k}${SK["jsonbHasAllKeysR"]}`]?   : string[] }	// JSONB ?&
 
 
 
-
-// TODO Accept key of same type (other table column)
-// TODO Accept simple equality on array ?
-// TODO Accept key of same type inside array ??
 	type FlatEnvWhere<
 		T extends Table,
 
 		SK extends SyntaxKeys
 	> =
-		WrapKeyArrayedValue<T, KeysOfNonArray<T>, T, '', ''>	// TODO SHould not be all plain keys, otherwise how we know array ?
+		WrapKeyArrayedValue<T, KeysOfNonArray<T>, T, '', ''>
 		& WrapKeyArrayedValue<T, KeysOfNonArray<T>, T, SKEqualityOPL<SK>, SKEqualityOPR<SK>>									// =, !=
 		& WrapKeyArrayedValue<T, KeysOfNumber<T>, T, SKCompareOPL<SK>, SKCompareOPR<SK>>							// >, >=, <, ≤ on non-array number
 		& WrapKeyArrayedValue<T, KeysOfString<T>, T, SKLikeOPL<SK>, SKLikeOPR<SK>>									// LIKE operators on string
 		& WrapKeyArrayedValue<T, KeysOfArray<T>, T, SKArrayEqualityOPL<SK>, SKArrayEqualityOPR<SK>>			// arrays operators [=],[!],[]… on arrays
 		& WrapKeyNoArrayValue<T, KeysOfNumberArray<T>, T, SKArrayCompareOPL<SK>, SKArrayCompareOPR<SK>>		// >, >=, <, ≤ on number[]
 		& WrapKeyNoArrayValue<T, KeysOfStringArray<T>, T, SKArrayLikeOPL<SK>, SKArrayLikeOPR<SK>>				// LIKE operators on string[]
-		& { [k in `${SK["andGroup"]}${string}`]? : FlatEnvWhere<T, SK>[]}											// nested AND
-		& TSQueryProp<T, SK>		 																								// @@:tsquery
+		& { [k in `${SK["andGroup"]}${string}`]? : FlatEnvWhere<T, SK>[]}												// nested AND
+		& TSQueryProp<T, SK>		 																									// @@:tsquery
+		& BetweenProp<T, SK>
+		& JSONBProp<T, SK>
 
 
 /* =========================================================================
-   =  Final Type
+   =  Final Types
    ========================================================================= */
-	// TODO Should authorise : table
-	// TODO Test
+
 
 	/**
 	 * Restricts which tables and columns are accessible in a runtime WHERE clause.
@@ -141,98 +150,6 @@ Will translate in :
 
 
 
-/************************
-		PREPARED WHERE
-**************************/
-
-	/**
-	 * This system lets you declare a WHERE "schema" — a tuple of WHERE key strings —
-	 * and have TypeScript automatically infer the matching value tuple type.
-	 *
-	 * The goal: instead of passing a full Where object at runtime, you declare upfront
-	 * which columns (and with which operators) will be parameterized, and get a
-	 * strongly-typed tuple of values to pass in order.
-	 *
-	 * Example:
-	 *   Schema:  ["name", "=:age", "[=]:tags"]
-	 *   Values:  [string,  number,  string[] ]   ← inferred by ValuesFromTablePreparedWhere
-	 *
-	 * Nested arrays represent AND groups (OR of multiple AND conditions),
-	 * mirroring the Where clause structure.
-	 */
-
-	/** Prepends a string prefix P to S if S is a string, otherwise never. */
-	type prefixString<S extends any, P extends string> = S extends string ? `${P}${S}` : never;
-
-	/**
-	 * The set of valid WHERE key strings for a given flat table type T.
-	 * Each element of this array type is one valid WHERE key the user can include
-	 * in their schema, covering all operator variants:
-	 *
-	 *   "col"          plain column (equality / default operator)
-	 *   "[=]:col"      array column operators  ([=], [!], [<>], [>], [>=], [<], [<=])
-	 *   "[~~]:col"     array column LIKE operators
-	 *   "@@:col"       TSQuery operator (only on string arrays)
-	 *   "=:col"        scalar equality / comparison operators
-	 *   "~~:col"       scalar LIKE operators
-	 *   Array<...>     nested AND group (OR of multiple AND conditions)
-	 */
-	export type TablePreparedWhere<T extends Table> = Array<
-		keyof T
-		| prefixString<KeysOfType<Required<T>, Array<any>>, `[${'' | '!' | '=' | '<>' | '!=' | '>' | '>=' | '<' | '<='}]:`>
-		| prefixString<KeysOfType<Required<T>, Array<string>>, `[${'~~' | '~~*' | '!~~' | '!~~*'}]:`>
-		| prefixString<KeysOfType<Required<T>, Array<string>>, `@@:`>
-		| prefixString<KeysNotOfType<Required<T>, Array<any>>, `${'=' | '<>' | '!=' | '>' | '>=' | '<' | '<='}:`>
-		| prefixString<KeysOfType<Required<T>, string>, `${'~~' | '~~*' | '!~~' | '!~~*'}:`>
-		| Array<TablePreparedWhere<T>>
-	>
-
-	/** Shorthand: same as TablePreparedWhere but operates on the full flat environment. */
-	export type EnvironmentPreparedWhere<Env extends Environment> = TablePreparedWhere<FlatEnv<Env>>;
-
-
-	/**
-	 * Given a flat table type T and a schema tuple A (a TablePreparedWhere),
-	 * recursively resolves each schema entry to its corresponding value type,
-	 * producing a value tuple in the same order.
-	 *
-	 * Resolution rules (applied to each element E of A):
-	 *   E extends keyof T              → T[E]           (plain column → its type)
-	 *   E extends `${string}:${S}`     → T[S]           (prefixed key → strip prefix, look up)
-	 *   E extends Array<unknown>        → recurse(E)     (nested AND group → flatten values)
-	 *
-	 * Example:
-	 *   T = { name: string, age: number, tags: string[] }
-	 *   A = ["name", "=:age", [">=:age", "<=:age"]]
-	 *   Result = [string, number, number, number]
-	 */
-	export type ValuesFromTablePreparedWhere<T extends Table, A extends unknown[]> = A extends [] ? [] : A extends [infer E, ...infer R] ?
-		(	E extends keyof T ?
-			[T[E], ... ValuesFromTablePreparedWhere<T,R>]
-			:
-			(	E extends `${string}:${infer S}` ?
-					(S extends keyof T ?
-						[T[S], ...ValuesFromTablePreparedWhere<T, R>]
-						:
-						never
-					)
-					:
-					(E extends Array<unknown> ?
-						[...ValuesFromTablePreparedWhere<T, E>, ...ValuesFromTablePreparedWhere<T, R>]
-						:
-						never
-					)
-			)
-		)
-		:
-		A;
-
-	/** Shorthand: same as ValuesFromTablePreparedWhere but on the full flat environment. */
-	export type ValuesFromEnvironmentPreparedWhere<Env extends Environment, A extends unknown[]> = ValuesFromTablePreparedWhere<FlatEnv<Env>, A>;
-
-
-
-
 
 /* =========================================================================
    =  UTILS
@@ -253,10 +170,12 @@ export class WhereParser{
 	readonly SK : SyntaxKeysConstant;
 	readonly pretty : boolean;
 
-	readonly VALUE_REGEX : RegExp;
-	readonly ARRAY_REGEX : RegExp;
+	readonly VALUE_REGEX   : RegExp;
+	readonly ARRAY_REGEX   : RegExp;
 	readonly TSQUERY_REGEX : RegExp;
-	readonly AND_REGEX : RegExp;
+	readonly AND_REGEX     : RegExp;
+	readonly BETWEEN_REGEX : RegExp;
+	readonly JSONB_REGEX   : RegExp;
 
 	constructor(sk : SyntaxKeysConstant, pretty : boolean = true){
 		this.SK     = sk;
@@ -271,6 +190,7 @@ export class WhereParser{
 				[ this.SK['likeR'], this.SK['softLikeR'], this.SK['dislikeR'], this.SK['softDislikeR'], this.SK['regexLikeR'], this.SK['softRegexLikeR'], this.SK['equalityR'], this.SK['inequalityR'], this.SK['softSuperiorR'], this.SK['softInferiorR'], this.SK['strictSuperiorR'], this.SK['strictInferiorR']]
 					.flatMap(v => Array.isArray(v) ? v : [v]).map(v => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
 			})$`);
+			
 		this.ARRAY_REGEX = new RegExp(
 			String.raw`^(?<opl>(?:${
 				[ this.SK['arrayLikeL'], this.SK['arraySoftLikeL'], this.SK['arrayDislikeL'], this.SK['arraySoftDislikeL'], this.SK['arrayRegexLikeL'], this.SK['arraySoftRegexLikeL'], this.SK['arrayEqualityL'], this.SK['arrayInequalityL'], this.SK['arraySoftSuperiorL'], this.SK['arraySoftInferiorL'], this.SK['arrayStrictSuperiorL'], this.SK['arrayStrictInferiorL']]
@@ -279,16 +199,36 @@ export class WhereParser{
 				[ this.SK['arrayLikeR'], this.SK['arraySoftLikeR'], this.SK['arrayDislikeR'], this.SK['arraySoftDislikeR'], this.SK['arrayRegexLikeR'], this.SK['arraySoftRegexLikeR'], this.SK['arrayEqualityR'], this.SK['arrayInequalityR'], this.SK['arraySoftSuperiorR'], this.SK['arraySoftInferiorR'], this.SK['arrayStrictSuperiorR'], this.SK['arrayStrictInferiorR']]
 					.flatMap(v => Array.isArray(v) ? v : [v]).map(v => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
 			})$`);
+
 		this.TSQUERY_REGEX = new RegExp(
 			String.raw`^(?<opl>(?:${
 				[ this.SK['tsqueryL'] ].flatMap(v => Array.isArray(v) ? v : [v]).map(v => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
 			}))(?<name>[A-Za-z0-9_.]+)(?<opr>${
 				[ this.SK['tsqueryR'] ].flatMap(v => Array.isArray(v) ? v : [v]).map(v => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
 			})$`);
+
 		this.AND_REGEX = new RegExp(
 			String.raw`^(?:${
 				[ this.SK['andGroup'] ].flatMap(v => Array.isArray(v) ? v : [v]).map(v => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
 			})(?<name>[A-Za-z0-9_.]+)$`);
+
+		this.BETWEEN_REGEX = new RegExp(
+			String.raw`^(?<opl>(?:${
+				[ this.SK['betweenL'], this.SK['notBetweenL'] ]
+					.flatMap(v => Array.isArray(v) ? v : [v]).map(v => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
+			}|))(?<name>[A-Za-z0-9_.]+)(?<opr>(?:${
+				[ this.SK['betweenR'], this.SK['notBetweenR'] ]
+					.flatMap(v => Array.isArray(v) ? v : [v]).map(v => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
+			}))$`);
+		// jsonbHasAnyKeyL / jsonbHasAllKeysL listed before jsonbHasKeyL to avoid prefix ambiguity (?|: before ?:)
+		this.JSONB_REGEX = new RegExp(
+			String.raw`^(?<opl>(?:${
+				[ this.SK['jsonbHasAnyKeyL'], this.SK['jsonbHasAllKeysL'], this.SK['jsonbContainsL'], this.SK['jsonbContainedByL'], this.SK['jsonbHasKeyL'] ]
+					.flatMap(v => Array.isArray(v) ? v : [v]).map(v => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
+			}|))(?<name>[A-Za-z0-9_.]+)(?<opr>(?:${
+				[ this.SK['jsonbHasAnyKeyR'], this.SK['jsonbHasAllKeysR'], this.SK['jsonbContainsR'], this.SK['jsonbContainedByR'], this.SK['jsonbHasKeyR'] ]
+					.flatMap(v => Array.isArray(v) ? v : [v]).map(v => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
+			}))$`);
 	}
 
 	private pushValue(v : any) : string {
@@ -482,6 +422,29 @@ export class WhereParser{
 	}
 
 
+	private parseBetween(key: string, value: any): void {
+		const match = key.match(this.BETWEEN_REGEX);
+		if(!match?.groups?.name) return;
+		const { opl, opr, name } = match.groups;
+
+		if(this.matchSK('betweenL', opl) && this.matchSK('betweenR', opr))
+			this.where += `${name} BETWEEN ${this.pushValue(value[0])} AND ${this.pushValue(value[1])}`;
+		else if(this.matchSK('notBetweenL', opl) && this.matchSK('notBetweenR', opr))
+			this.where += `${name} NOT BETWEEN ${this.pushValue(value[0])} AND ${this.pushValue(value[1])}`;
+	}
+
+	private parseJSONB(key: string, value: any): void {
+		const match = key.match(this.JSONB_REGEX);
+		if(!match?.groups?.name) return;
+		const { opl, opr, name } = match.groups;
+
+		if      (this.matchSK('jsonbContainsL', opl)    && this.matchSK('jsonbContainsR', opr))    this.where += `${name} @> ${this.pushValue(value)}`;
+		else if (this.matchSK('jsonbContainedByL', opl) && this.matchSK('jsonbContainedByR', opr)) this.where += `${name} <@ ${this.pushValue(value)}`;
+		else if (this.matchSK('jsonbHasKeyL', opl)      && this.matchSK('jsonbHasKeyR', opr))      this.where += `${name} ? ${this.pushValue(value)}`;
+		else if (this.matchSK('jsonbHasAnyKeyL', opl)   && this.matchSK('jsonbHasAnyKeyR', opr))   this.where += `${name} ?| ${this.pushValue(value)}`;
+		else if (this.matchSK('jsonbHasAllKeysL', opl)  && this.matchSK('jsonbHasAllKeysR', opr))  this.where += `${name} ?& ${this.pushValue(value)}`;
+	}
+
 	private parseAND(key : string, value : any, depth : number){
 		const match = key.match(this.AND_REGEX);
 		if (!match || !match.groups?.name) return;
@@ -513,6 +476,8 @@ export class WhereParser{
 			this.parseAND(prop, where[prop], depth);
 			this.parseTSQuery(prop, where[prop]);
 			this.parseArray(prop, where[prop]);
+			this.parseBetween(prop, where[prop]);
+			this.parseJSONB(prop, where[prop]);
 			this.parseValue(prop, where[prop]);
 			this.where += andSep;
 		}
@@ -571,8 +536,6 @@ export class WhereParser{
 			nextvar: 17
 		}
 */
-
-
 export function mergeWHEREAsAND(pretty : boolean, ...where : (string|undefined)[]){
 	let res = '';
 	for(const s of where){
@@ -601,30 +564,3 @@ export function mergeWHEREAsOR(...where : (string | undefined)[]){
 
 	return res && res.replace(/\s/g, '').length > 0 ? `( ${res} )` : '';
 }
-
-
-
-///
-// TESTS
-///
-
-type ENV = {
-	table1 : {
-		a1 : string;
-		b1 : number;
-		c1 : number[];
-	},
-	table2 : {
-		a2 : string;
-		b2 : number;
-	},
-	table4 : {
-		a4 : number;
-	}
-};
-
-let t : Where<ENV, VerboseSyntaxKeys> = {
-	"table4.a4" : [5, col('table1.b1'), null, 3],
-	"{table1.c1} =": [3, 4],	
-}
-
