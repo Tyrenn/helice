@@ -329,7 +329,7 @@ export const VerboseSyntaxKeys = {
 	jsonR : ")",
 	rawL : "sql(",
 	rawR : ")",
-	andGroup : "AND",
+	andGroup : "AND ",
 
 	tsqueryL : "",
 	tsqueryR : " @@",
