@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="./documentation/banner.png">
+</p>
+
 <p align="center" style="font-weight: bold">
   Hélice - Fluent Typesafe Type PostgreSQL Query Builder Queries • 🛩️
 </p>
@@ -71,9 +75,7 @@ That's it. From this point, every builder method is fully typed against `Environ
 
 ### SyntaxKeys
 
-We do like SQL and its vocabulary. With Helice, we only intend to ease query writing not replacing SQL syntax. As such Helice keeps the structure of SQL clauses intact: WHERE, JOIN, WITH etc.
-
-Type safety comes from plain JavaScript objects describing your join, where and select statements — the TypeScript compiler checks them against your `Environment`. The syntax used inside those objects is fully customizable through a SyntaxKey object. Two sets ship out of the box:
+I really do enjoy SQL and its vocabulary. With Hélice, I only intend to ease query writing, not replacing SQL syntax. Thus Helice keeps the structure of SQL clauses intact: WHERE, JOIN, WITH etc. However, each clause operators required a specific syntax that I had to define. Should we use compact anotation based on symbols ? Or maybe a syntax as close as possible to plain SQL ? Since I couldn't make up my mind, I implemented a fully customizable syntax through a SyntaxKey object which defines the set of operators and keys to be used. Two sets ship out of the box:
 
 #### **`DefaultSyntaxKeys`** — a compact symbolic set:
 
@@ -203,6 +205,7 @@ db.select('post')
 
 > ***NOTE:** After a join, bare column names are no longer valid — use `table.column` everywhere in `.field()`, `.where()`, and `.orderBy()`.*
 
+---
 
 ### ORDER BY
 
@@ -216,6 +219,8 @@ db.select('post')
 ```
 
 After a join, use fully-qualified `table.col` notation.
+
+---
 
 ### RETURNING
 
@@ -239,7 +244,7 @@ The clauses above don't all apply everywhere — `.field()` makes no sense on a 
 | `.with()` (CTE) | ✓ | | ✓ | ✓ |
 | `.where()` / `.in()` / `.notIn()` | ✓ | | ✓ | ✓ |
 | `.orderBy()` / `.limit()` | ✓ | | | |
----
+
 
 >#### For in-depth documentation and examples for each query type
 >- #### [SELECT](./documentation/select.md) — field, join, CTE, where, orderBy, limit, prepare options
@@ -247,7 +252,6 @@ The clauses above don't all apply everywhere — `.field()` makes no sense on a 
 >- #### [UPDATE](./documentation/update.md) — set, using, CTE, where, returning, prepare options
 >- #### [DELETE](./documentation/delete.md) — using, CTE, where, returning, prepare options
 >
-> ---
 
 ### `prepare()` — static vs runtime
 
