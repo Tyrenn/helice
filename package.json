@@ -2,17 +2,26 @@
 	"name": "helice",
 	"version": "0.0.1",
 	"description": "Typesafe PostgreSQL Query Builder",
+	"keywords": ["postgresql", "postgres", "query-builder", "typescript", "typesafe", "sql"],
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/Tyrenn/helice.git"
+	},
+	"homepage": "https://github.com/Tyrenn/helice#readme",
+	"bugs": {
+		"url": "https://github.com/Tyrenn/helice/issues"
+	},
 	"main"   : "./build/index.js",
 	"types"  : "./build/index.d.ts",
 	"exports": {
 		".": {
-			"import": "./build/index.js",
-			"types" : "./build/index.d.ts"
+			"types" : "./build/index.d.ts",
+			"import": "./build/index.js"
 		}
 	},
 	"files": ["build"],
 	"scripts": {
-		"build"      : "tsc",
+		"build"      : "node -e \"fs.rmSync('build',{recursive:true,force:true})\" && tsc",
 		"start"      : "node ./build",
 		"test"       : "vitest run",
 		"test:watch" : "vitest",
@@ -21,7 +30,7 @@
 		"version"    : "changeset version",
 		"release"    : "pnpm build && changeset publish"
 	},
-	"author": "",
+	"author": "Guillaume Vailland (Tyren)",
 	"type": "module",
 	"license": "MIT",
 	"devDependencies": {
