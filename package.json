@@ -1,8 +1,15 @@
 {
 	"name": "helice",
-	"version": "0.0.1",
+	"version": "1.0.0",
 	"description": "Typesafe PostgreSQL Query Builder",
-	"keywords": ["postgresql", "postgres", "query-builder", "typescript", "typesafe", "sql"],
+	"keywords": [
+		"postgresql",
+		"postgres",
+		"query-builder",
+		"typescript",
+		"typesafe",
+		"sql"
+	],
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/Tyrenn/helice.git"
@@ -11,32 +18,34 @@
 	"bugs": {
 		"url": "https://github.com/Tyrenn/helice/issues"
 	},
-	"main"   : "./build/index.js",
-	"types"  : "./build/index.d.ts",
+	"main": "./build/index.js",
+	"types": "./build/index.d.ts",
 	"exports": {
 		".": {
-			"types" : "./build/index.d.ts",
+			"types": "./build/index.d.ts",
 			"import": "./build/index.js"
 		}
 	},
-	"files": ["build"],
+	"files": [
+		"build"
+	],
 	"scripts": {
-		"build"      : "node -e \"fs.rmSync('build',{recursive:true,force:true})\" && tsc",
-		"start"      : "node ./build",
-		"test"       : "vitest run",
-		"test:watch" : "vitest",
-		"test:file"  : "tsx",
-		"changeset"  : "changeset",
-		"version"    : "changeset version",
-		"release"    : "pnpm build && changeset publish"
+		"build": "node -e \"fs.rmSync('build',{recursive:true,force:true})\" && tsc",
+		"start": "node ./build",
+		"test": "vitest run",
+		"test:watch": "vitest",
+		"test:file": "tsx",
+		"changeset": "changeset",
+		"version": "changeset version",
+		"release": "pnpm build && changeset publish"
 	},
 	"author": "Guillaume Vailland (Tyren)",
 	"type": "module",
 	"license": "MIT",
 	"devDependencies": {
 		"@changesets/cli": "^2.31.0",
-		"tsx"            : "^4.22.3",
-		"typescript"     : "^5.9.3",
-		"vitest"         : "^4.1.7"
+		"tsx": "^4.22.3",
+		"typescript": "^5.9.3",
+		"vitest": "^4.1.7"
 	}
 }
