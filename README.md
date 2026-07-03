@@ -73,6 +73,8 @@ const db = new Helice<Environment>();
 
 That's it. From this point, every builder method is fully typed against `Environment` — table names, column names, their types, valid comparisons — TypeScript will catch anything that doesn't exist or doesn't match.
 
+> ***NOTE:** Helice interpolates table and column names as-is, without identifier quoting. Names that collide with PostgreSQL reserved words (`order`, `group`, …), contain uppercase letters, or special characters are not supported — stick to lowercase snake_case identifiers.*
+
 ### SyntaxKeys
 
 I really do enjoy SQL and its vocabulary. With Hélice, I only intend to ease query writing, not replacing SQL syntax. Thus Helice keeps the structure of SQL clauses intact: WHERE, JOIN, WITH etc. However, each clause operators required a specific syntax that I had to define. Should we use compact anotation based on symbols ? Or maybe a syntax as close as possible to plain SQL ? Since I couldn't make up my mind, I implemented a fully customizable syntax through a SyntaxKey object which defines the set of operators and keys to be used. Two sets ship out of the box:

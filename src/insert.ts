@@ -97,6 +97,8 @@ export class InsertQuery<
 
 			const vp = new ValuesParser(pretty);
 			if(effectiveValues) vp.parse(effectiveValues, 1);
+			if(vp.columns.length === 0)
+				throw new Error(`Helice : INSERT into '${this.#table}' requires at least one row of values (none provided statically or at runtime)`);
 
 			// ── RETURNING ────────────────────────────────────────────────────────
 			const fp = new FieldParser(this.#sk);

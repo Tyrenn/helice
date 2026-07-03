@@ -216,15 +216,15 @@ export class JoinParser{
 	constructor(sk : SyntaxKeysConstant){
 		this.SK = sk;
 
-		// Match `{sk[]}name{sk[]}` and `name`
+		// Match `{sk[]}name{sk[]}` and `name` (empty alternatives allow bare equality keys)
 		this.VALUE_REGEX = new RegExp(
 			String.raw`^(?<opl>(?:${
 				[ this.SK['likeL'], this.SK['softLikeL'], this.SK['dislikeL'], this.SK['softDislikeL'], this.SK['regexLikeL'], this.SK['softRegexLikeL'], this.SK['equalityL'], this.SK['inequalityL'], this.SK['softSuperiorL'], this.SK['softInferiorL'], this.SK['strictSuperiorL'], this.SK['strictInferiorL']]
 					.flatMap(v => Array.isArray(v) ? v : [v]).map(v => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
-			}))(?<name>[A-Za-z0-9_.]+)(?<opr>${
+			}|))(?<name>[A-Za-z0-9_.]+)(?<opr>(?:${
 				[ this.SK['likeR'], this.SK['softLikeR'], this.SK['dislikeR'], this.SK['softDislikeR'], this.SK['regexLikeR'], this.SK['softRegexLikeR'], this.SK['equalityR'], this.SK['inequalityR'], this.SK['softSuperiorR'], this.SK['softInferiorR'], this.SK['strictSuperiorR'], this.SK['strictInferiorR']]
 					.flatMap(v => Array.isArray(v) ? v : [v]).map(v => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
-			})$`);
+			}|))$`);
 		this.ARRAY_REGEX = new RegExp(
 			String.raw`^(?<opl>(?:${
 				[ this.SK['arrayLikeL'], this.SK['arraySoftLikeL'], this.SK['arrayDislikeL'], this.SK['arraySoftDislikeL'], this.SK['arrayRegexLikeL'], this.SK['arraySoftRegexLikeL'], this.SK['arrayEqualityL'], this.SK['arrayInequalityL'], this.SK['arraySoftSuperiorL'], this.SK['arraySoftInferiorL'], this.SK['arrayStrictSuperiorL'], this.SK['arrayStrictInferiorL']]
@@ -250,13 +250,13 @@ export class JoinParser{
 
 
 	pushValue(v : any) : string {
-		if(Array.isArray(v) && v.some(s => s instanceof Column)) //Check if array and if contains a Column instance
-			return `'{${v.map(s => {
+		if(Array.isArray(v) && v.some(s => s instanceof Column)) // Mixed array : ARRAY[...] keeps params and column refs interpreted (a quoted '{}' literal would not)
+			return `ARRAY[${v.map(s => {
 				if(s instanceof Column)
 					return s.name;
 				this.values.push(s);
 				return `$${this.idx++}`;
-			}).join(', ')}}'`
+			}).join(', ')}]`
 		else if(v instanceof Column)
 			return v.name;
 		else{
@@ -325,7 +325,7 @@ export class JoinParser{
 		if ((!match.groups.opl && !match.groups.opr) || (this.matchSK('arrayEqualityL', match.groups.opl) && this.matchSK('arrayEqualityR', match.groups.opr)))
 			return this.processArrayColumn("=", "equality", match.groups?.name, value);
 
-		else if(this.matchSK('arrayInequalityL', match.groups.opl) && this.matchSK('inequalityL', match.groups.opr))
+		else if(this.matchSK('arrayInequalityL', match.groups.opl) && this.matchSK('arrayInequalityR', match.groups.opr))
 			return this.processArrayColumn("<>", "inequality", match.groups?.name, value);
 		
 		// LIKE OPERATORS
@@ -364,7 +364,7 @@ export class JoinParser{
 	 * @param value 
 	 * @returns 
 	 */
-	private processValueColumn(op : string, arrMethod : "ANY" | "ALL", nullOP : "IS" | "IS NOT", name : string, value : any){
+	private processValueColumn(op : string, arrMethod : "ANY" | "ALL", nullOP : "IS" | "IS NOT", name : string, value : any) : string {
 
 		// Null case
 		if(value === null)
@@ -373,10 +373,17 @@ export class JoinParser{
 			return this.from += `${name} ${op} ${this.pushValue(value)}`;
 		// Single value also
 		else if (value.length == 1)
-			return this.from += `${name} ${op} ${this.pushValue(value[0])}`;
+			return this.processValueColumn(op, arrMethod, nullOP, name, value[0]);
+		// Array containing null : null combines as OR with ANY, as AND with ALL
+		else if (value.includes(null)){
+			const values = value.filter((v : any) => v !== null);
+			if(values.length === 0)
+				return this.from += `${name} ${nullOP} NULL`;
+			return this.from += `( ${name} ${nullOP} NULL ${arrMethod === 'ANY' ? 'OR' : 'AND'} ${name} ${op} ${arrMethod}(${this.pushValue(values)}) )`;
+		}
 		// Array case
 		else
-			return this.from += value.includes(null) ? `( ${name} ${nullOP} NULL AND ${name} ${op} ${arrMethod}(${this.pushValue(value)}) )` : `${name} ${op} ${arrMethod}(${this.pushValue(value)})`;
+			return this.from += `${name} ${op} ${arrMethod}(${this.pushValue(value)})`;
 	}
 
 
@@ -401,7 +408,7 @@ export class JoinParser{
 		if ((!match.groups.opl && !match.groups.opr) || (this.matchSK('equalityL', match.groups.opl) && this.matchSK('equalityR', match.groups.opr)))
 			return this.processValueColumn("=", "ANY", "IS", match.groups?.name, value);
 
-		else if(this.matchSK('inequalityL', match.groups.opl) && this.matchSK('inequalityL', match.groups.opr))
+		else if(this.matchSK('inequalityL', match.groups.opl) && this.matchSK('inequalityR', match.groups.opr))
 			return this.processValueColumn("<>", "ALL", "IS NOT", match.groups?.name, value);
 		
 		// LIKE OPERATORS
@@ -435,9 +442,51 @@ export class JoinParser{
 
 		if (!match || !match.groups?.name)
 			return;
-		
-		// TODO 
-		this.parse(value, this.idx);
+
+		this.parseJoinConditions(value);
+	}
+
+	/**
+	 * Parses join ON conditions : an object is an AND of its props,
+	 * an array is an OR of its (AND-combined) elements — same semantics as WHERE.
+	 */
+	private parseJoinConditions(cond : Obj | Obj[]){
+		if(Array.isArray(cond)){
+			if(cond.length === 0) return;
+			this.from += '( ';
+			for(let i = 0; i < cond.length; i++){
+				if(i > 0) this.from += ' OR ';
+				this.from += '( ';
+				this.parseJoinConditions(cond[i]);
+				this.from += ' )';
+			}
+			this.from += ' )';
+			return;
+		}
+
+		let emitted = false;
+		for(const prop in cond){
+			if(cond[prop] === undefined) continue;
+
+			// Parse the prop into an isolated fragment so we only add a separator
+			// when something was actually emitted, and can detect unknown keys.
+			const mark = this.from;
+			this.from = '';
+			this.parseObjectJoinANDProp(prop, cond[prop]);
+			this.parseObjectJoinArrayProp(prop, cond[prop]);
+			this.parseObjectJoinValueProp(prop, cond[prop]);
+			const frag = this.from;
+			this.from = mark;
+
+			if(!frag){
+				// An AND group can legitimately emit nothing (empty array) — skip it
+				if(this.AND_REGEX.test(prop)) continue;
+				throw new Error(`Helice : unrecognized JOIN condition key '${prop}'`);
+			}
+
+			this.from += (emitted ? ' AND ' : '') + frag;
+			emitted = true;
+		}
 	}
 
 	private parseStringJoin(key : string, value : any){
@@ -474,31 +523,31 @@ export class JoinParser{
 		this.from += `${value[this.SK["join"]]} JOIN ${match.groups?.name}${match.groups?.alias ? ' AS ' + match.groups?.alias : ''}\n\tON `;
 		const { [this.SK["join"]]: _, ...rest } = value;
 
-		for(let key in rest){
-			if(value[key] === undefined)
-					continue;
-
-			this.parseObjectJoinANDProp(key, value[key]);
-			this.parseObjectJoinArrayProp(key, value[key]);
-			this.parseObjectJoinValueProp(key, value[key]);
-
-			this.from += ' AND ';
-		}
-		
-		this.from = this.from.slice(0,-5);
+		const beforeConditions = this.from.length;
+		this.parseJoinConditions(rest);
+		if(this.from.length === beforeConditions)
+			throw new Error(`Helice : JOIN '${key}' has no ON condition`);
 	}
 
 
 	parse(join : Obj, idx : number = 1){
-		this.idx = idx;
+		this.idx    = idx;
 		this.values = [];
+		this.from   = '';
 
+		const parts : string[] = [];
 		for(const prop in join){
+			if(join[prop] === undefined) continue;
+
+			this.from = '';
 			this.parseStringJoin(prop, join[prop]);
 			this.parseObjectJoin(prop, join[prop]);
-			this.from += `\n`;
+
+			if(!this.from)
+				throw new Error(`Helice : unrecognized JOIN entry '${prop}'`);
+			parts.push(this.from);
 		}
-		this.from = this.from.slice(0,-1);
+		this.from = parts.join('\n');
 	}
 }
 

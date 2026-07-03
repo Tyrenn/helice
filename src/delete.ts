@@ -219,14 +219,20 @@ export class DeleteQuery<
 			// ── WHERE (runtime) ──────────────────────────────────────────────────
 			let runtimeWhereSQL    = '';
 			let runtimeWhereValues : any[] = [];
+			let runtimeWhereFrom   = '';
 			if(options?.where && castedArgs?.where){
 				const runtimeParser = new WhereParser(this.#sk, pretty);
 				runtimeParser.parse(castedArgs.where as Obj, whereParser.idx);
 				runtimeWhereSQL    = runtimeParser.where;
 				runtimeWhereValues = runtimeParser.values;
+				runtimeWhereFrom   = runtimeParser.from;
 			}
 
 			const whereSQL = mergeWHEREAsAND(pretty, inSQL, whereParser.where, runtimeWhereSQL);
+
+			// TSQuery (@@:) FROM additions — joined with the USING tables.
+			const tsqueryFrom = [whereParser.from, runtimeWhereFrom].join(' ').trimEnd().replace(/,\s*$/, '').trim();
+			const usingParts  = tsqueryFrom ? [...this.#using, tsqueryFrom] : this.#using;
 
 			// ── RETURNING ────────────────────────────────────────────────────────
 			const fp = new FieldParser(this.#sk);
@@ -234,7 +240,7 @@ export class DeleteQuery<
 
 			const lines : string[] = [
 				`DELETE FROM ${this.#table}`,
-				this.#using.length > 0 ? `USING ${this.#using.join(', ')}` : '',
+				usingParts.length > 0 ? `USING ${usingParts.join(', ')}` : '',
 				whereSQL  ? `WHERE ${whereSQL}`      : '',
 				fp.select ? `RETURNING ${fp.select}` : '',
 			];

@@ -235,6 +235,8 @@ export class UpdateQuery<
 
 			const vp = new ValuesParser(pretty);
 			if(effectiveSet) vp.parse(effectiveSet, 1);
+			if(!vp.setSQL)
+				throw new Error(`Helice : UPDATE '${this.#table}' requires a SET clause (none provided statically or at runtime)`);
 
 			// ── IN subqueries ────────────────────────────────────────────────────
 			const { sql: inSQL, args: inArgsList, nextIdx: inNextIdx } =
@@ -248,14 +250,20 @@ export class UpdateQuery<
 			// ── WHERE (runtime) ──────────────────────────────────────────────────
 			let runtimeWhereSQL    = '';
 			let runtimeWhereValues : any[] = [];
+			let runtimeWhereFrom   = '';
 			if(options?.where && castedArgs?.where){
 				const runtimeParser = new WhereParser(this.#sk, pretty);
 				runtimeParser.parse(castedArgs.where as Obj, whereParser.idx);
 				runtimeWhereSQL    = runtimeParser.where;
 				runtimeWhereValues = runtimeParser.values;
+				runtimeWhereFrom   = runtimeParser.from;
 			}
 
 			const whereSQL = mergeWHEREAsAND(pretty, inSQL, whereParser.where, runtimeWhereSQL);
+
+			// TSQuery (@@:) FROM additions — joined with the USING tables in the FROM clause.
+			const tsqueryFrom = [whereParser.from, runtimeWhereFrom].join(' ').trimEnd().replace(/,\s*$/, '').trim();
+			const fromParts   = tsqueryFrom ? [...this.#using, tsqueryFrom] : this.#using;
 
 			// ── RETURNING ────────────────────────────────────────────────────────
 			const fp = new FieldParser(this.#sk);
@@ -264,7 +272,7 @@ export class UpdateQuery<
 			const lines : string[] = [
 				`UPDATE ${this.#table}`,
 				vp.setSQL                ? `SET ${vp.setSQL}`               : '',
-				this.#using.length > 0   ? `FROM ${this.#using.join(', ')}` : '',
+				fromParts.length > 0     ? `FROM ${fromParts.join(', ')}`   : '',
 				whereSQL                 ? `WHERE ${whereSQL}`              : '',
 				fp.select                ? `RETURNING ${fp.select}`         : '',
 			];

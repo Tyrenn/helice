@@ -186,10 +186,10 @@ export class WhereParser{
 			String.raw`^(?<opl>(?:${
 				[ this.SK['likeL'], this.SK['softLikeL'], this.SK['dislikeL'], this.SK['softDislikeL'], this.SK['regexLikeL'], this.SK['softRegexLikeL'], this.SK['equalityL'], this.SK['inequalityL'], this.SK['softSuperiorL'], this.SK['softInferiorL'], this.SK['strictSuperiorL'], this.SK['strictInferiorL']]
 					.flatMap(v => Array.isArray(v) ? v : [v]).map(v => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
-			}|))(?<name>[A-Za-z0-9_.]+)(?<opr>${
+			}|))(?<name>[A-Za-z0-9_.]+)(?<opr>(?:${
 				[ this.SK['likeR'], this.SK['softLikeR'], this.SK['dislikeR'], this.SK['softDislikeR'], this.SK['regexLikeR'], this.SK['softRegexLikeR'], this.SK['equalityR'], this.SK['inequalityR'], this.SK['softSuperiorR'], this.SK['softInferiorR'], this.SK['strictSuperiorR'], this.SK['strictInferiorR']]
 					.flatMap(v => Array.isArray(v) ? v : [v]).map(v => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
-			})$`);
+			}|))$`);
 			
 		this.ARRAY_REGEX = new RegExp(
 			String.raw`^(?<opl>(?:${
@@ -232,13 +232,13 @@ export class WhereParser{
 	}
 
 	private pushValue(v : any) : string {
-		if(Array.isArray(v) && v.some(s => s instanceof Column)) //Check if array and if contains a Column instance
-			return `'{${v.map(s => {
+		if(Array.isArray(v) && v.some(s => s instanceof Column)) // Mixed array : ARRAY[...] keeps params and column refs interpreted (a quoted '{}' literal would not)
+			return `ARRAY[${v.map(s => {
 				if(s instanceof Column)
 					return s.name;
 				this.values.push(s);
 				return `$${this.idx++}`;
-			}).join(', ')}}'`
+			}).join(', ')}]`
 		else if(v instanceof Column)
 			return v.name;
 		else{
@@ -306,7 +306,7 @@ export class WhereParser{
 		if ((!match.groups.opl && !match.groups.opr) || (this.matchSK('arrayEqualityL', match.groups.opl) && this.matchSK('arrayEqualityR', match.groups.opr)))
 			return this.processArrayColumn("=", "equality", match.groups?.name, value);
 
-		else if(this.matchSK('arrayInequalityL', match.groups.opl) && this.matchSK('inequalityL', match.groups.opr))
+		else if(this.matchSK('arrayInequalityL', match.groups.opl) && this.matchSK('arrayInequalityR', match.groups.opr))
 			return this.processArrayColumn("<>", "inequality", match.groups?.name, value);
 		
 		// LIKE OPERATORS
@@ -345,7 +345,7 @@ export class WhereParser{
 	 * @param value 
 	 * @returns 
 	 */
-	private processValueColumn(op : string, arrMethod : "ANY" | "ALL", nullOP : "IS" | "IS NOT", name : string, value : any){
+	private processValueColumn(op : string, arrMethod : "ANY" | "ALL", nullOP : "IS" | "IS NOT", name : string, value : any) : string {
 
 		// Null case
 		if(value === null)
@@ -353,10 +353,17 @@ export class WhereParser{
 		else if (!Array.isArray(value))
 			return this.where += `${name} ${op} ${this.pushValue(value)}`;
 		else if (value.length == 1)
-			return this.where += `${name} ${op} ${this.pushValue(value[0])}`;
+			return this.processValueColumn(op, arrMethod, nullOP, name, value[0]);
+		// Array containing null : null combines as OR with ANY, as AND with ALL
+		else if (value.includes(null)){
+			const values = value.filter((v : any) => v !== null);
+			if(values.length === 0)
+				return this.where += `${name} ${nullOP} NULL`;
+			return this.where += `( ${name} ${nullOP} NULL ${arrMethod === 'ANY' ? 'OR' : 'AND'} ${name} ${op} ${arrMethod}(${this.pushValue(values)}) )`;
+		}
 		// Array case
 		else
-			return this.where += value.includes(null) ? `( ${name} ${nullOP} NULL AND ${name} ${op} ${arrMethod}(${this.pushValue(value)}) )` : `${name} ${op} ${arrMethod}(${this.pushValue(value)})`;
+			return this.where += `${name} ${op} ${arrMethod}(${this.pushValue(value)})`;
 	}
 
 
@@ -381,7 +388,7 @@ export class WhereParser{
 		if ((!match.groups.opl && !match.groups.opr) || (this.matchSK('equalityL', match.groups.opl) && this.matchSK('equalityR', match.groups.opr)))
 			return this.processValueColumn("=", "ANY", "IS", match.groups?.name, value);
 
-		else if(this.matchSK('inequalityL', match.groups.opl) && this.matchSK('inequalityL', match.groups.opr))
+		else if(this.matchSK('inequalityL', match.groups.opl) && this.matchSK('inequalityR', match.groups.opr))
 			return this.processValueColumn("<>", "ALL", "IS NOT", match.groups?.name, value);
 		
 		// LIKE OPERATORS
@@ -456,6 +463,7 @@ export class WhereParser{
 		const andSep = this.pretty ? `\n${tab(depth)}AND ` : ' AND ';
 
 		if(Array.isArray(where)){
+			if(where.length === 0) return;
 			this.where += '(';
 			for(let i = 0; i < where.length; i++){
 				if(i > 0){
@@ -471,18 +479,32 @@ export class WhereParser{
 			return;
 		}
 
+		let emitted = false;
 		for(const prop in where){
 			if(where[prop] === undefined) continue;
+
+			// Parse the prop into an isolated fragment so we only add a separator
+			// when something was actually emitted, and can detect unknown keys.
+			const mark = this.where;
+			this.where = '';
 			this.parseAND(prop, where[prop], depth);
 			this.parseTSQuery(prop, where[prop]);
 			this.parseArray(prop, where[prop]);
 			this.parseBetween(prop, where[prop]);
 			this.parseJSONB(prop, where[prop]);
 			this.parseValue(prop, where[prop]);
-			this.where += andSep;
-		}
+			const frag = this.where;
+			this.where = mark;
 
-		this.where = this.where.slice(0, -andSep.length);
+			if(!frag){
+				// An AND group can legitimately emit nothing (empty array) — skip it
+				if(this.AND_REGEX.test(prop)) continue;
+				throw new Error(`Helice : unrecognized WHERE key '${prop}'`);
+			}
+
+			this.where += (emitted ? andSep : '') + frag;
+			emitted = true;
+		}
 	}
 
 	parse(where: Obj | Obj[], idx : number = 1){

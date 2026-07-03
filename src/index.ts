@@ -5,6 +5,19 @@ import { UpdateQuery } from "./update.js";
 import { DefaultSyntaxKeys, SyntaxKeys, SyntaxKeysConstant } from "./syntaxkeys.js";
 import { Environment, Table } from "./types.js";
 
+export { SelectQuery } from "./select.js";
+export { InsertQuery } from "./insert.js";
+export { UpdateQuery } from "./update.js";
+export { DeleteQuery } from "./delete.js";
+export { col, Column } from "./types.js";
+export type { Environment, Table, AllowedColumnTypes } from "./types.js";
+export { DefaultSyntaxKeys, VerboseSyntaxKeys } from "./syntaxkeys.js";
+export type { SyntaxKeys, SyntaxKeysConstant, ToSyntaxKey } from "./syntaxkeys.js";
+export type { Field } from "./clauses/field.js";
+export type { Where, WhereRestrictionSpec } from "./clauses/where.js";
+export type { Join } from "./clauses/join.js";
+export type { OrderBy } from "./clauses/orderby.js";
+
 
 type CTEEntry = { alias: string; preparedFn: (args?: any) => { query: string; args: any[] } };
 
