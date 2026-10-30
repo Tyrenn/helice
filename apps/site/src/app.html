@@ -4,7 +4,10 @@
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<meta name="theme-color" content="#220808" />
-		<link rel="icon" href="%sveltekit.assets%/favicon.svg" type="image/svg+xml" />
+		<!-- Not favicon.svg : browsers cache icons by URL, and localhost is shared with other projects -->
+		<link rel="icon" href="%sveltekit.assets%/icon-32.png" sizes="32x32" type="image/png" />
+		<link rel="icon" href="%sveltekit.assets%/icon.svg" type="image/svg+xml" />
+		<link rel="apple-touch-icon" href="%sveltekit.assets%/icon-180.png" />
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover">

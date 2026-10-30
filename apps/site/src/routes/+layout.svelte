@@ -20,6 +20,7 @@
 			<a class="start" href={docHref('getting-started')}>Getting started</a>
 			<a href={`${resolve('/docs')}/`}>Docs</a>
 			<a href={playgroundHref()}>Playground</a>
+			<a class="about" href={`${resolve('/about')}/`}>About</a>
 			<a class="github" href="https://github.com/Tyrenn/helice">GitHub</a>
 			<a class="npm" href="https://www.npmjs.com/package/helice">npm</a>
 		</div>
@@ -32,6 +33,7 @@
 	<div class="page">
 		<span>MIT licensed. In French, <em>hélice</em> (<em>ay-lees</em>) is a propeller, which looks a bit like a q and a b stacked on top of each other.</span>
 		<span class="footer-links">
+			<a href={`${resolve('/about')}/`}>About</a>
 			<a href="https://github.com/Tyrenn/helice">GitHub</a>
 			<a href="https://www.npmjs.com/package/helice">npm</a>
 			<a href="https://github.com/Tyrenn/helice/issues">Report an issue</a>
@@ -115,9 +117,9 @@
 		gap : 16px;
 	}
 
-	/* The whole menu on a phone : npm stays in the footer, the logo alone leads home */
+	/* The whole menu on a phone : About and npm stay in the footer, the logo alone leads home */
 	@media (max-width: 560px){
-		.brand span, .npm{
+		.brand span, .about, .npm{
 			display : none;
 		}
 

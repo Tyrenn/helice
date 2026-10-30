@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { docHref } from '#lib/links.ts';
 	import { page } from '$app/state';
 
@@ -8,6 +9,9 @@
 <div class="page layout">
 	<nav aria-label="Documentation">
 		<ul>
+			<li>
+				<a href={`${resolve('/docs')}/`} aria-current={page.params.slug ? undefined : 'page'}>Index</a>
+			</li>
 			{#each data.docs as doc (doc.slug)}
 				{@const href = docHref(doc.slug)}
 				<li>

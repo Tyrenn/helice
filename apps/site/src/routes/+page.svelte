@@ -1,12 +1,15 @@
 <script lang="ts">
 	import { docHref, playgroundHref } from '#lib/links.ts';
 	import Logo from '#lib/Logo.svelte';
+	import Planes from '#lib/Planes.svelte';
 	import { copyCode } from '#lib/copy.ts';
 
 	let {data} = $props();
 
 	let selected = $state('select');
 	let example = $derived(data.examples.find((other) => other.id === selected) ?? data.examples[0]);
+
+	let heroPanel = $state<'code' | 'sql'>('code');
 
 	const features = [
 		{title : 'No schema file, no codegen', text : 'Your schema is a TypeScript type. There is no CLI to run and nothing to generate.'},
@@ -24,7 +27,7 @@
 </svelte:head>
 
 <section class="hero">
-	<div class="propeller" aria-hidden="true"><Logo size={720} /></div>
+	<Planes />
 	<div class="page hero-grid">
 		<div class="pitch">
 			<div class="lockup">
@@ -48,13 +51,34 @@
 				<button type="button" class="copy" onclick={(event) => copyCode(event.currentTarget)}>Copy</button>
 			</div>
 		</div>
-		<div class="hero-example">
-			<div class="code">
-				<pre>{@html data.quickstart.code}</pre>
+		<div class="code hero-example">
+			<div class="files" role="tablist" aria-label="Quick start">
+				<button
+					type="button"
+					role="tab"
+					id="hero-tab-code"
+					aria-selected={heroPanel === 'code'}
+					aria-controls="hero-code"
+					onclick={() => heroPanel = 'code'}
+				>query.ts</button>
+				<button
+					type="button"
+					role="tab"
+					id="hero-tab-sql"
+					aria-selected={heroPanel === 'sql'}
+					aria-controls="hero-sql"
+					onclick={() => heroPanel = 'sql'}
+				>output.sql</button>
 			</div>
-			<div class="code output">
-				<pre>{@html data.quickstart.sql}</pre>
-				<p class="args"><span>args</span> <code>{data.quickstart.args}</code></p>
+			<!-- Stacked in one grid cell : the taller panel sets the height, nothing jumps when switching -->
+			<div class="panels">
+				<div id="hero-code" role="tabpanel" aria-labelledby="hero-tab-code" class={{active : heroPanel === 'code'}}>
+					<pre>{@html data.quickstart.code}</pre>
+				</div>
+				<div id="hero-sql" role="tabpanel" aria-labelledby="hero-tab-sql" class={['output', {active : heroPanel === 'sql'}]}>
+					<pre>{@html data.quickstart.sql}</pre>
+					<p class="args"><span>args</span> <code>{data.quickstart.args}</code></p>
+				</div>
 			</div>
 		</div>
 	</div>
@@ -176,26 +200,10 @@
 		overflow : hidden;
 	}
 
-	/* Turning slowly behind everything, like the banner's mark at full scale */
-	.propeller{
-		position : absolute;
-		top : calc(50% - 360px);
-		left : calc(50% - 192px);
-		opacity : 0.07;
-		pointer-events : none;
-		animation : spin 60s linear infinite;
-	}
-
-	@keyframes spin{
-		to{
-			transform : rotate(360deg);
-		}
-	}
-
 	.hero-grid{
 		position : relative;
 		display : grid;
-		grid-template-columns : minmax(0, 1fr) minmax(0, 1fr);
+		grid-template-columns : minmax(0, 5fr) minmax(0, 6fr);
 		align-items : center;
 		gap : clamp(32px, 5vw, 64px);
 	}
@@ -286,13 +294,48 @@
 	}
 
 	.hero-example{
-		display : grid;
-		gap : 12px;
-		min-width : 0;
+		background : var(--ink-raised);
+		overflow : hidden;
 	}
 
-	.hero-example .code{
-		background : var(--ink-raised);
+	.files{
+		display : flex;
+		padding-inline : 8px;
+		border-bottom : 1px solid var(--ink-line);
+	}
+
+	.files button{
+		padding : 10px 12px;
+		border : 0;
+		border-bottom : 2px solid transparent;
+		margin-bottom : -1px;
+		background : none;
+		color : var(--on-ink-muted);
+		font : 500 0.82rem var(--font-mono);
+		cursor : pointer;
+	}
+
+	.files button:hover{
+		color : var(--on-ink);
+	}
+
+	.files button[aria-selected='true']{
+		border-bottom-color : var(--blade-light);
+		color : var(--on-ink);
+	}
+
+	.panels{
+		display : grid;
+	}
+
+	.panels > *{
+		grid-area : 1 / 1;
+		min-width : 0;
+		visibility : hidden;
+	}
+
+	.panels > .active{
+		visibility : visible;
 	}
 
 	.output pre{
@@ -477,10 +520,6 @@
 	@media (max-width: 860px){
 		.hero-grid, .pair, .syntaxes, .typesafe{
 			grid-template-columns : minmax(0, 1fr);
-		}
-
-		.propeller{
-			left : calc(50% - 60px);
 		}
 	}
 </style>
