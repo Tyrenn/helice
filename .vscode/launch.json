@@ -5,9 +5,9 @@
 			"name": "Build & Debug",
 			"type": "node",
 			"request": "launch",
-			"program": "${workspaceFolder}/src/index.ts",
-			"preLaunchTask": "tsc: build - tsconfig.json",
-			"outFiles": ["${workspaceFolder}/build/**/*.js"]
+			"program": "${workspaceFolder}/packages/helice/src/index.ts",
+			"preLaunchTask": "tsc: build - packages/helice/tsconfig.json",
+			"outFiles": ["${workspaceFolder}/packages/helice/build/**/*.js"]
 		}
 	]
 }

@@ -1,0 +1,159 @@
+/* Colors come from the Hélice banner */
+:root{
+	--ink : #220808;
+	--ink-raised : #331111;
+	--ink-line : #522222;
+	--on-ink : #fff;
+	--on-ink-muted : #d9b8b8;
+	--blade-dark : #a92626;
+	--blade-light : #f2c6c6;
+
+	--surface : #fffbfa;
+	--surface-raised : #fbefee;
+	--line : #efdcdb;
+	--text : #2a1010;
+	--text-muted : #6f4f4f;
+	--link : #a92626;
+	--accent : #a92626;
+	--on-accent : #fff;
+	--inline-code : #f8e7e6;
+
+	--font-display : 'Newsreader Variable', Georgia, serif;
+	--font-body : 'Inter Variable', system-ui, sans-serif;
+	--font-mono : 'JetBrains Mono Variable', ui-monospace, Consolas, monospace;
+
+	--gutter : clamp(16px, 4vw, 40px);
+	--page : 1160px;
+
+	color-scheme : light dark;
+}
+
+@media (prefers-color-scheme: dark){
+	:root{
+		--surface : #1a0606;
+		--surface-raised : #2b0f0f;
+		--line : #522222;
+		--text : #f9ecec;
+		--text-muted : #c9a7a7;
+		--link : #f2c6c6;
+		--accent : #f2c6c6;
+		--on-accent : #220808;
+		--inline-code : #3a1616;
+	}
+}
+
+*, *::before, *::after{
+	box-sizing : border-box;
+}
+
+html{
+	scroll-behavior : smooth;
+	scroll-padding-top : 80px;
+	-webkit-text-size-adjust : 100%;
+}
+
+body{
+	margin : 0;
+	background : var(--surface);
+	color : var(--text);
+	font : 400 1rem/1.65 var(--font-body);
+}
+
+h1, h2, h3, h4{
+	font-family : var(--font-display);
+	font-weight : 500;
+	line-height : 1.2;
+	margin : 0;
+}
+
+a{
+	color : var(--link);
+}
+
+code, pre{
+	font-family : var(--font-mono);
+	font-size : 0.875rem;
+	/* The keys are the syntax : >= has to read as >=, not as a ligature */
+	font-variant-ligatures : none;
+}
+
+:focus-visible{
+	outline : 2px solid var(--accent);
+	outline-offset : 2px;
+	border-radius : 4px;
+}
+
+.page{
+	width : 100%;
+	max-width : calc(var(--page) + 2 * var(--gutter));
+	margin-inline : auto;
+	padding-inline : var(--gutter);
+}
+
+/* Code blocks stay dark in both themes, like the banner */
+.code{
+	position : relative;
+	min-width : 0;
+	background : var(--ink);
+	border : 1px solid var(--ink-line);
+	border-radius : 14px;
+	color : #f6e4e4;
+}
+
+.code pre{
+	margin : 0;
+	padding : 18px 20px;
+	overflow-x : auto;
+	line-height : 1.6;
+	tab-size : 3;
+}
+
+.code code{
+	background : none;
+	padding : 0;
+	color : inherit;
+}
+
+.copy{
+	position : absolute;
+	top : 8px;
+	right : 8px;
+	padding : 3px 10px;
+	border : 1px solid var(--ink-line);
+	border-radius : 999px;
+	background : var(--ink-raised);
+	color : var(--on-ink-muted);
+	font : 500 0.75rem var(--font-body);
+	cursor : pointer;
+	opacity : 0;
+	transition : opacity 0.15s;
+}
+
+.code:hover .copy, .copy:focus-visible{
+	opacity : 1;
+}
+
+@media (hover: none){
+	.copy{
+		opacity : 1;
+	}
+}
+
+.hljs-comment, .hljs-quote{ color : #b09393; font-style : italic; }
+.hljs-keyword, .hljs-selector-tag, .hljs-built_in, .hljs-meta{ color : #ff9e9e; }
+.hljs-string, .hljs-regexp, .hljs-addition{ color : #f0d9a0; }
+.hljs-number, .hljs-literal, .hljs-symbol, .hljs-bullet{ color : #ffc48a; }
+.hljs-title, .hljs-section, .hljs-attr, .hljs-attribute, .hljs-type{ color : #f2c6c6; }
+.hljs-deletion{ color : #ffb3ad; }
+
+@media (prefers-reduced-motion: reduce){
+	html{
+		scroll-behavior : auto;
+	}
+
+	*, *::before, *::after{
+		animation-duration : 0.01ms !important;
+		animation-iteration-count : 1 !important;
+		transition-duration : 0.01ms !important;
+	}
+}

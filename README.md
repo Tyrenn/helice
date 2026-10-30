@@ -321,17 +321,18 @@ I develop and maintain Helice on my own as a key package accross my work. As suc
 ### Getting started
 
 ```bash
-git clone https://github.com/your-org/helice.git
+git clone https://github.com/Tyrenn/helice.git
 cd helice
 pnpm install
 pnpm test         # run the test suite
 pnpm test:watch   # re-run on file changes
+pnpm site         # run the website locally
 ```
 
-The test files in [`tests/`](./tests/) also double as runnable examples. Pass any of them to `tsx` to see the generated SQL printed to stdout:
+The test files in [`packages/helice/tests/`](./packages/helice/tests/) also double as runnable examples. Pass any of them to `tsx` to see the generated SQL printed to stdout:
 
 ```bash
-pnpm test:file tests/select.test.ts
+pnpm --filter helice test:file tests/select.test.ts
 ```
 
 ### Before opening a PR

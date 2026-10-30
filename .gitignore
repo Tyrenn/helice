@@ -9,3 +9,9 @@ build/*
 .claude
 
 .npmrc
+
+.svelte-kit
+
+# Generated at pack time from the root files
+packages/helice/README.md
+packages/helice/LICENSE
